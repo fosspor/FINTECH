@@ -133,7 +133,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-screen max-w-2xl mx-auto w-full border-x border-border/10 bg-background relative overflow-hidden">
+    <main className="flex-1 flex flex-col h-[100dvh] max-w-2xl mx-auto w-full border-x border-border/10 bg-background relative overflow-hidden">
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div
