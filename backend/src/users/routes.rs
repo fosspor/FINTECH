@@ -1,3 +1,1 @@
-pub mod routes {
-    // Basic placeholders for user routes
-}
+// Basic placeholders for user routes

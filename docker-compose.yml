@@ -22,6 +22,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/finbro
       - RUST_LOG=debug
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +38,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

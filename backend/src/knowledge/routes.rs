@@ -1,3 +1,1 @@
-pub mod routes {
-    // Knowledge management
-}
+// Knowledge management
