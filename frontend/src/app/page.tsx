@@ -21,7 +21,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export default function Home() {
   const [started, setStarted] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -34,13 +34,8 @@ export default function Home() {
   const { isRecording, startRecording, stopRecording, audioBlob, setAudioBlob } = useAudioRecorder();
 
   useEffect(() => {
-    // Scroll to bottom on new message
-    if (scrollRef.current) {
-      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
-    }
+    // Scroll to bottom on new message or typing indicator
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   useEffect(() => {
@@ -133,7 +128,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-[100dvh] max-w-2xl mx-auto w-full border-x border-border/10 bg-background relative overflow-hidden">
+    <main className="flex-1 flex flex-col min-h-0 max-w-2xl mx-auto w-full border-x border-border/10 bg-background relative overflow-hidden">
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div
@@ -166,9 +161,9 @@ export default function Home() {
             key="chat"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col h-full z-10 w-full"
+            className="flex flex-col flex-1 min-h-0 z-10 w-full"
           >
-            <header className="px-6 py-4 border-b border-border/10 bg-background/80 backdrop-blur-md sticky top-0 z-20 flex items-center gap-3">
+            <header className="px-6 py-4 border-b border-border/10 bg-background/80 backdrop-blur-md shrink-0 z-20 flex items-center gap-3">
               <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center border border-primary/30">
                 <MessageSquare className="w-5 h-5 text-primary" />
               </div>
@@ -181,8 +176,8 @@ export default function Home() {
               </div>
             </header>
 
-            <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-              <div className="flex flex-col gap-6 pb-4">
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="flex flex-col gap-6 p-6">
                 {messages.map((msg, i) => (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -238,10 +233,11 @@ export default function Home() {
                     </div>
                   </motion.div>
                 )}
+                <div ref={messagesEndRef} className="h-1" />
               </div>
             </ScrollArea>
 
-            <div className="p-4 bg-background border-t border-border/10">
+            <div className="p-4 bg-background border-t border-border/10 shrink-0">
               <form 
                 onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                 className={`flex items-center gap-2 relative rounded-full p-1 border shadow-inner transition-colors ${
