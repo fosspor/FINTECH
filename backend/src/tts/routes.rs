@@ -2,6 +2,5 @@ use axum::Json;
 use serde_json::{json, Value};
 
 pub async fn generate() -> Json<Value> {
-    // Mock TTS API implementation
-    Json(json!({ "audio_url": "/mock_audio.mp3" }))
+    Json(json!({ "audio_url": null, "message": "ожидается api" }))
 }

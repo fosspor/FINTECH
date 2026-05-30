@@ -26,7 +26,6 @@ services:
       - RUST_LOG=debug
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
-      - QWEN_API_KEY=${QWEN_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

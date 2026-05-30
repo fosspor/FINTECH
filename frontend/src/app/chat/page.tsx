@@ -19,28 +19,50 @@ type Message = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-const STARTER_REPLIES = [
-  "Доход 100 000, деньги быстро уходят",
-  "Есть кредитка и хочу закрыть долг",
-  "Хочу накопить подушку",
-  "Хочу начать инвестировать",
+const CHAT_HISTORY_STORAGE_KEY = "finbro_chat_messages";
+const API_WAITING_MESSAGE = "ожидается api";
+const INITIAL_CHAT_PROMPT =
+  "Начни диалог с пользователем: коротко представься как FinClip и задай первый вопрос для финансового профиля.";
+const LEGACY_PLACEHOLDER_PATTERNS = [
+  "Привет! Я FinClip",
+  "Я подключен как FinBro",
+  "Ð¯ Ð¿Ð¾Ð´ÐºÐ»Ñ",
+  "РЇ РїРѕРґРєР»",
 ];
+
+function isMessageArray(value: unknown): value is Message[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (message) =>
+        typeof message === "object" &&
+        message !== null &&
+        typeof (message as Message).id === "string" &&
+        ((message as Message).role === "assistant" || (message as Message).role === "user") &&
+        typeof (message as Message).content === "string"
+    )
+  );
+}
+
+function sanitizeSavedMessages(messages: Message[]) {
+  return messages.map((message) => {
+    const isLegacyPlaceholder =
+      message.role === "assistant" &&
+      LEGACY_PLACEHOLDER_PATTERNS.some((pattern) => message.content.includes(pattern));
+
+    return isLegacyPlaceholder ? { ...message, content: API_WAITING_MESSAGE } : message;
+  });
+}
 
 export default function Home() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome-chat",
-      role: "assistant",
-      content:
-        "Привет! Я FinClip, твой финансовый наставник внутри приложения. Давай заполним твой профиль через разговор: доход, обязательные траты, долги, подушка и цель. Потом я соберу уровни под твои реальные проблемы.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [hasLoadedMessages, setHasLoadedMessages] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isBuildingPath, setIsBuildingPath] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialRequestStartedRef = useRef(false);
   const { isRecording, startRecording, stopRecording, audioBlob, setAudioBlob } = useAudioRecorder();
 
   const userMessageCount = messages.filter((message) => message.role === "user").length;
@@ -49,6 +71,51 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    try {
+      const savedMessages = localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      if (savedMessages) {
+        const parsedMessages = JSON.parse(savedMessages);
+        if (isMessageArray(parsedMessages)) {
+          setMessages(sanitizeSavedMessages(parsedMessages));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to restore FinClip chat history", error);
+    } finally {
+      setHasLoadedMessages(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== CHAT_HISTORY_STORAGE_KEY || !event.newValue) return;
+
+      try {
+        const parsedMessages = JSON.parse(event.newValue);
+        if (isMessageArray(parsedMessages)) {
+          setMessages(sanitizeSavedMessages(parsedMessages));
+        }
+      } catch (error) {
+        console.error("Failed to sync FinClip chat history", error);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedMessages) return;
+    localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(messages));
+  }, [hasLoadedMessages, messages]);
+
+  useEffect(() => {
+    if (!hasLoadedMessages || messages.length > 0 || initialRequestStartedRef.current) return;
+    initialRequestStartedRef.current = true;
+    requestInitialMessage();
+  }, [hasLoadedMessages, messages.length]);
 
   useEffect(() => {
     if (audioBlob) {
@@ -61,6 +128,42 @@ export default function Home() {
     history
       .map((message) => `${message.role === "assistant" ? "FinBro" : "Пользователь"}: ${message.content}`)
       .join("\n");
+
+  const requestInitialMessage = async () => {
+    setIsTyping(true);
+
+    try {
+      const response = await fetch(`${API_URL}/ai/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: INITIAL_CHAT_PROMPT,
+          context: "",
+        }),
+      });
+      const data = await response.json();
+      const assistantText = data.response ?? API_WAITING_MESSAGE;
+
+      setMessages([
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: assistantText,
+        },
+      ]);
+    } catch (error) {
+      console.error("Failed to get initial FinClip message", error);
+      setMessages([
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: API_WAITING_MESSAGE,
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   const askFinbro = async (nextMessages: Message[]) => {
     const userMessage = nextMessages[nextMessages.length - 1];
@@ -76,9 +179,7 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-      const assistantText =
-        data.response ??
-        "Я рядом, но сейчас не смог получить ответ от AI. Попробуй написать ещё раз.";
+      const assistantText = data.response ?? API_WAITING_MESSAGE;
 
       setMessages((prev) => [
         ...prev,
@@ -95,7 +196,7 @@ export default function Home() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "Не смог достучаться до backend. Проверь, что Rust API запущен на localhost:8000.",
+          content: API_WAITING_MESSAGE,
         },
       ]);
     } finally {
@@ -122,7 +223,7 @@ export default function Home() {
     const tempMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: "🎤 Распознаю голос...",
+      content: API_WAITING_MESSAGE,
       isAudio: true,
     };
 
@@ -141,22 +242,23 @@ export default function Home() {
         body: formData,
       });
       const transcription = await transcriptionResponse.json();
-      const transcribedText = transcription.text || "Расскажи, что происходит с моими финансами";
-
-      const nextMessages = [
-        ...messages,
-        { ...tempMessage, content: transcribedText, isAudio: false },
-      ];
+      const transcribedText = transcription.text || API_WAITING_MESSAGE;
+      const nextMessages = [...messages, { ...tempMessage, content: transcribedText, isAudio: false }];
 
       setMessages(nextMessages);
       setIsTyping(false);
+
+      if (transcribedText === API_WAITING_MESSAGE) {
+        return;
+      }
+
       await askFinbro(nextMessages);
     } catch (error) {
       console.error("Failed to transcribe audio", error);
       setMessages((prev) =>
         prev.map((message) =>
           message.id === tempMessage.id
-            ? { ...message, content: "Не получилось распознать голос. Напиши текстом?", isAudio: false }
+            ? { ...message, content: API_WAITING_MESSAGE, isAudio: false }
             : message
         )
       );
@@ -272,21 +374,6 @@ export default function Home() {
                     <p className="text-[17px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                   </div>
 
-                  {index === 0 && msg.role === "assistant" && userMessageCount === 0 && (
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      {STARTER_REPLIES.map((reply) => (
-                        <Button
-                          key={reply}
-                          type="button"
-                          variant="secondary"
-                          onClick={() => handleSend(reply)}
-                          className="rounded-full bg-secondary/15 hover:bg-secondary/25 border border-secondary/30 h-auto py-2.5 px-4 text-[15px] font-medium whitespace-normal"
-                        >
-                          {reply}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </motion.div>
             ))}
