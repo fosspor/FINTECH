@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Check, BrainCircuit, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { HeroAvatar3D } from "@/components/hero-avatar-3d";
 
 const TRAITS = ["Friendly", "Ambitious", "Funny", "Supportive", "Creative", "Analytical"];
 const STYLES = ["Minimalist", "Techwear", "Casual", "Business", "Streetwear"];
@@ -136,7 +137,7 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
         {step === 1 && wrapScreen(
           <>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <AvatarGraphic stage="silhouette" />
+              <HeroAvatar3D isSilhouette />
             </div>
             <div className="pb-10 w-full">
               <h1 className="text-3xl font-bold mb-3 tracking-tight text-white">Create Your AI Companion</h1>
@@ -155,7 +156,7 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
         {step === 2 && wrapScreen(
           <>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <AvatarGraphic stage="neutral" />
+              <HeroAvatar3D />
             </div>
             <div className="pb-10 w-full flex flex-col items-center">
               <Loader2 className="w-8 h-8 text-[#7B61FF] animate-spin mb-4" />
@@ -168,7 +169,7 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
         {step === 3 && wrapScreen(
           <>
             <div className="flex-1 w-full flex items-center justify-center relative mt-8 mb-4 max-h-[30vh]">
-              <AvatarGraphic stage="neutral" />
+              <HeroAvatar3D />
             </div>
             <div className="w-full bg-[#171923] border border-white/5 rounded-[24px] p-6 shadow-xl flex-1 flex flex-col mb-8 text-left relative overflow-hidden">
               <h3 className="text-xl font-bold mb-4">Avatar Features</h3>
@@ -232,7 +233,7 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
         {step === 5 && wrapScreen(
           <>
             <div className="flex-1 w-full flex items-center justify-center relative mt-4 max-h-[35vh]">
-              <AvatarGraphic stage="neutral" />
+              <HeroAvatar3D />
             </div>
             <div className="w-full bg-[#171923] border border-white/5 rounded-[24px] p-6 shadow-xl mb-8 text-left">
               <h3 className="text-xl font-bold mb-4">Outfit Style</h3>
@@ -272,8 +273,8 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
                 <div className="absolute w-[200px] h-[200px] rounded-full border-[2px] border-[#7B61FF] border-dotted" />
               </motion.div>
               
-              <div className="relative z-10 text-[#7B61FF]">
-                <AvatarGraphic stage="neutral" />
+              <div className="relative z-10 text-[#7B61FF] w-full h-[40vh]">
+                <HeroAvatar3D />
               </div>
             </div>
             <div className="pb-16 w-full flex flex-col items-center">
@@ -288,9 +289,9 @@ export function HeroOnboarding({ onComplete }: { onComplete: () => void }) {
         {/* Screen 7: Final Reveal */}
         {step === 7 && wrapScreen(
           <>
-            <div className="flex-1 w-full flex items-center justify-center relative mt-4">
+            <div className="flex-1 w-full flex items-center justify-center relative mt-4 h-[40vh]">
               <div className="absolute inset-0 bg-[#7B61FF]/10 blur-[100px] rounded-full" />
-              <AvatarGraphic stage="final" />
+              <HeroAvatar3D />
             </div>
             
             <div className="w-full bg-[#171923] border border-white/10 rounded-[24px] p-6 shadow-2xl mb-8 text-left relative z-20">

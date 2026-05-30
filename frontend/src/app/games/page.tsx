@@ -18,7 +18,7 @@ type GameData = {
   color: string;
   reward: number;
   desc: string;
-  icon?: React.ElementType;
+  icon?: any;
 };
 
 export default function GamesPage() {
@@ -62,7 +62,7 @@ export default function GamesPage() {
       <ScrollArea className="flex-1">
         <div className="p-6 flex flex-col gap-5">
           {games.map((game, idx) => {
-            const Icon = game.icon || ShoppingCart;
+            const IconComponent = game.icon || ShoppingCart;
             return (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -74,7 +74,7 @@ export default function GamesPage() {
                 <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-[50px] opacity-20 ${game.color} pointer-events-none group-hover:opacity-40 transition-opacity`} />
                 <div className="flex items-start gap-4 relative z-10">
                   <div className={`w-14 h-14 rounded-2xl ${game.color.replace('bg-', 'bg-')}/20 flex items-center justify-center border border-white/10 shrink-0`}>
-                    <Icon className="w-7 h-7 text-white" />
+                    <IconComponent className="w-7 h-7 text-white" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-lg leading-tight mb-1">{game.title}</h3>

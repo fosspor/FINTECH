@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HeroOnboarding } from "@/components/hero-onboarding";
-import { HeroAvatar } from "@/components/hero-avatar";
+import { HeroAvatar3D } from "@/components/hero-avatar-3d";
 
 type Category = "clothing" | "background" | "accessory";
 
@@ -140,7 +140,7 @@ export default function HeroPage() {
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               className="absolute inset-0 z-10"
             >
-              <HeroAvatar equipped={equipped} />
+              <HeroAvatar3D />
             </motion.div>
           </motion.div>
 
