@@ -6,6 +6,8 @@ import { ArrowLeft, Play, Gem, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
+import { LevelMascot, getLevelMascot } from "@/components/level-mascots";
+import { DEFAULT_LEVELS } from "@/lib/default-levels";
 
 type TaskData = {
   id: number;
@@ -37,6 +39,9 @@ export default function LevelDetailsPage() {
       } catch (e) {
         console.error("Failed to parse dynamic path", e);
       }
+    } else {
+      const found = DEFAULT_LEVELS.find((l) => l.id.toString() === levelId);
+      setLevel(found || null);
     }
     setLoading(false);
   }, [levelId]);
@@ -74,11 +79,24 @@ export default function LevelDetailsPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold mb-2 text-primary">{level.title}</h1>
-          <p className="text-muted-foreground text-lg">
-            {level.description}
-          </p>
+        <div className="mb-8 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 relative">
+          <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_50%_0%,rgba(48,213,200,0.22),transparent_70%)] pointer-events-none" />
+          <div className="relative z-10 flex items-center gap-5">
+            <LevelMascot
+              mascot={getLevelMascot(level.id, `${level.title} ${level.description}`)}
+              levelId={level.id}
+              title={level.title}
+              mood="happy"
+              size="lg"
+              className="shrink-0"
+            />
+            <div className="min-w-0">
+              <h1 className="text-3xl font-extrabold mb-2 text-primary">{level.title}</h1>
+              <p className="text-muted-foreground text-base leading-relaxed">
+                {level.description}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sprout, Shield, PiggyBank, TrendingUp, Rocket, Target, Zap, AlertCircle, Flame, Gem, Check, Lock, Loader2 } from "lucide-react";
+import { Flame, Gem, Check, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const ICON_MAP: Record<string, React.ElementType> = {
-  Sprout, Shield, PiggyBank, TrendingUp, Rocket, Target, Zap, AlertCircle
-};
+import { LevelMascot, getLevelMascot, type LevelMascotId } from "@/components/level-mascots";
+import { DEFAULT_LEVELS } from "@/lib/default-levels";
 
 type LevelData = {
   id: number;
@@ -18,7 +16,7 @@ type LevelData = {
   description: string;
   icon_name: string;
   status: string;
-  icon: React.ElementType;
+  mascot: LevelMascotId;
 };
 
 export default function PathPage() {
@@ -30,15 +28,22 @@ export default function PathPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        const withStatus = parsed.map((lvl: Omit<LevelData, "status" | "icon">, i: number) => ({
+        const withStatus = parsed.map((lvl: Omit<LevelData, "status" | "mascot">, i: number) => ({
           ...lvl,
           status: i === 0 ? "current" : "locked",
-          icon: ICON_MAP[lvl.icon_name] || Sprout
+          mascot: getLevelMascot(lvl.id, `${lvl.title} ${lvl.description ?? ""}`)
         }));
         setLevels(withStatus);
       } catch (e) {
         console.error("Failed to parse dynamic path", e);
       }
+    } else {
+      const fallback = DEFAULT_LEVELS.map((lvl, i) => ({
+        ...lvl,
+        status: i === 0 ? "current" : "locked",
+        mascot: getLevelMascot(lvl.id, `${lvl.title} ${lvl.description}`)
+      }));
+      setLevels(fallback);
     }
     setLoading(false);
   }, []);
@@ -89,8 +94,6 @@ export default function PathPage() {
 
           {levels.map((level, index) => {
             const isEven = index % 2 === 0;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const Icon = level.icon as any;
             const isCompleted = level.status === "completed";
             const isCurrent = level.status === "current";
             const isLocked = level.status === "locked";
@@ -136,7 +139,14 @@ export default function PathPage() {
                         <span className="absolute inset-0 rounded-full border-4 border-primary/50 animate-ping" />
                       )}
 
-                      <Icon className={cn("w-10 h-10", isCompleted && "fill-white/20")} strokeWidth={isCompleted ? 2.5 : 2} />
+                      <LevelMascot
+                        mascot={level.mascot}
+                        levelId={level.id}
+                        title={level.title}
+                        mood={isCompleted ? "celebrate" : isCurrent ? "happy" : "idle"}
+                        size="sm"
+                        locked={isLocked}
+                      />
                     </div>
                   </div>
                 </Link>

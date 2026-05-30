@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { ElementType } from "react";
 import { motion } from "framer-motion";
 import { Gem, Play, ShoppingCart, TrafficCone, ShieldAlert, PiggyBank, Target, Zap, AlertCircle, Sprout, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-const ICON_MAP: Record<string, React.ElementType> = {
+const ICON_MAP: Record<string, ElementType> = {
   ShoppingCart, TrafficCone, ShieldAlert, PiggyBank, Target, Zap, AlertCircle, Sprout
 };
 
@@ -18,7 +19,7 @@ type GameData = {
   color: string;
   reward: number;
   desc: string;
-  icon?: any;
+  icon?: ElementType;
 };
 
 export default function GamesPage() {

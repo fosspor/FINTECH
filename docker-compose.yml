@@ -19,9 +19,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/finbro
       - RUST_LOG=debug
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - QWEN_API_KEY=${QWEN_API_KEY:-}
     depends_on:
       db:

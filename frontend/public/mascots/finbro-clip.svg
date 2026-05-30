@@ -1,0 +1,55 @@
+<svg width="512" height="512" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">FinBro Clip Mascot</title>
+  <desc id="desc">A friendly financial paperclip mascot standing on a yellow note.</desc>
+  <defs>
+    <linearGradient id="finbroNote" x1="62" y1="69" x2="197" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8B8"/>
+      <stop offset="0.55" stop-color="#E8F48F"/>
+      <stop offset="1" stop-color="#BFE86D"/>
+    </linearGradient>
+    <linearGradient id="finbroClip" x1="74" y1="30" x2="164" y2="174" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8ECFF"/>
+      <stop offset="0.38" stop-color="#7786D9"/>
+      <stop offset="1" stop-color="#4940A8"/>
+    </linearGradient>
+    <linearGradient id="finbroEye" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DDE8FF"/>
+    </linearGradient>
+    <filter id="finbroSoftShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g id="paper" filter="url(#finbroSoftShadow)">
+    <path id="paper_base" d="M64 82 L198 72 L168 184 L43 160 Z" fill="url(#finbroNote)" stroke="#8EAC39" stroke-opacity="0.45" stroke-width="3" stroke-linejoin="round"/>
+    <path id="paper_line_1" d="M87 99 L178 92" stroke="#9BA94F" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+    <path id="paper_line_2" d="M81 115 L174 108" stroke="#9BA94F" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+    <path id="paper_line_3" d="M76 131 L169 124" stroke="#9BA94F" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+    <path id="paper_line_4" d="M70 147 L159 141" stroke="#9BA94F" stroke-width="3" stroke-linecap="round" opacity="0.35"/>
+    <path id="paper_fold_shadow" d="M52 158 L168 184 L158 195 L42 161 Z" fill="#8DBE3E" opacity="0.28"/>
+  </g>
+
+  <g id="clip">
+    <path id="clip_shadow" d="M100 43 C119 16 158 32 154 62 L141 158 C136 196 77 187 84 148 L96 79 C101 52 139 57 135 82 L124 148 C122 160 104 158 106 145 L116 83" fill="none" stroke="#2B276E" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"/>
+    <path id="clip_body" d="M96 39 C116 12 155 28 151 59 L138 155 C133 193 74 184 81 145 L93 76 C98 49 136 54 132 79 L121 145 C119 157 101 155 103 142 L113 80" fill="none" stroke="url(#finbroClip)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="clip_highlight" d="M96 39 C116 12 155 28 151 59" fill="none" stroke="#F8FAFF" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+  </g>
+
+  <g id="face">
+    <path id="left_brow" d="M103 58 Q116 50 128 57" stroke="#161A3A" stroke-width="6" stroke-linecap="round"/>
+    <path id="right_brow" d="M145 57 Q158 50 170 58" stroke="#161A3A" stroke-width="6" stroke-linecap="round"/>
+    <ellipse id="left_eye" cx="115" cy="75" rx="18" ry="20" fill="url(#finbroEye)" stroke="#A8B3D8" stroke-width="2"/>
+    <ellipse id="right_eye" cx="157" cy="75" rx="18" ry="20" fill="url(#finbroEye)" stroke="#A8B3D8" stroke-width="2"/>
+    <circle id="left_pupil" cx="119" cy="75" r="7" fill="#111827"/>
+    <circle id="right_pupil" cx="153" cy="75" r="7" fill="#111827"/>
+    <circle id="left_eye_spark" cx="122" cy="72" r="2.5" fill="#FFFFFF"/>
+    <circle id="right_eye_spark" cx="156" cy="72" r="2.5" fill="#FFFFFF"/>
+    <path id="mouth" d="M123 137 Q138 149 153 137" stroke="#17142E" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <g id="coin">
+    <circle id="coin_base" cx="61" cy="69" r="15" fill="#FFD166" stroke="#9C6A00" stroke-opacity="0.22" stroke-width="3"/>
+    <path id="coin_ruble" d="M61 60 V78 M54 66 H65 C71 66 71 74 65 74 H55" stroke="#7A4D00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,166 +1,138 @@
 "use client";
 
-import { useState } from "react";
-import { useAvatarStore } from "@/state/useAvatarStore";
-import { AvatarViewer } from "@/components/avatar-viewer";
-import { AvaturnCreator } from "@/components/avaturn-creator";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, RefreshCcw, Download } from "lucide-react";
+import { motion } from "framer-motion";
+import type { ElementType } from "react";
+import { ArrowLeft, Award, Brain, Frown, Gem, Medal, RotateCcw, Sparkles, Star, Trophy } from "lucide-react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { FinbroMascot } from "@/components/finbro-mascot";
+import { Mood, useAvatarStore } from "@/state/useAvatarStore";
+import { cn } from "@/lib/utils";
 
-type FlowStep = "welcome" | "create" | "result";
+const moodOptions: Array<{ mood: Mood; label: string; icon: ElementType }> = [
+  { mood: "idle", label: "Спокойный", icon: Star },
+  { mood: "thinking", label: "Думает", icon: Brain },
+  { mood: "happy", label: "Радость", icon: Sparkles },
+  { mood: "celebrate", label: "Победа", icon: Trophy },
+  { mood: "sad", label: "Ошибка", icon: Frown },
+];
+
+const rewards = [
+  { title: "Финансовый старт", value: "1 уровень", icon: Medal },
+  { title: "Кристаллы", value: "450", icon: Gem },
+  { title: "Дней подряд", value: "12", icon: Award },
+];
 
 export default function HeroPage() {
-  const [step, setStep] = useState<FlowStep>("welcome");
-  const { setAvatarUrl } = useAvatarStore();
-  const router = useRouter();
-
-  const handleAvatarExported = (url: string) => {
-    setAvatarUrl(url);
-    // Optionally persist to local storage or backend here
-    localStorage.setItem("avaturn_url", url);
-    setStep("result");
-  };
-
-  const handleDownload = async () => {
-    const url = localStorage.getItem("avaturn_url");
-    if (!url) return;
-    
-    try {
-      // Create a temporary link element to trigger the download
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "my-ai-avatar.glb";
-      a.target = "_blank"; // In case it opens instead of downloading
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Failed to download avatar", err);
-    }
-  };
-
-  const handleRetake = () => {
-    setAvatarUrl("");
-    setStep("create");
-  };
-
-  const completeFlow = () => {
-    router.push("/path");
-  };
+  const { mood, setMood, level, xp } = useAvatarStore();
 
   return (
-    <main className="flex flex-col min-h-[100dvh] bg-background text-foreground overflow-hidden">
+    <main className="flex-1 flex flex-col min-h-0 w-full bg-background text-foreground overflow-y-auto relative">
+      <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(48,213,200,0.24),transparent_62%)] pointer-events-none" />
+
       <header className="px-6 py-4 border-b border-white/5 flex items-center justify-between sticky top-0 z-20 bg-background/80 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <Link href="/">
+          <Link href="/path">
             <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
-          <h1 className="font-semibold text-lg tracking-tight">Create Avatar</h1>
+          <div>
+            <h1 className="font-semibold text-lg tracking-tight">Мой герой</h1>
+            <p className="text-xs text-muted-foreground">FinBro растет вместе с твоими привычками</p>
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 w-full flex items-center justify-center p-4 md:p-6 relative">
-        <AnimatePresence mode="wait">
-          
-          {/* STEP 1: WELCOME SCREEN */}
-          {step === "welcome" && (
-            <motion.div 
-              key="welcome"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm mx-auto flex flex-col items-center text-center"
-            >
-              <div className="w-24 h-24 bg-primary/20 text-primary rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-primary/30 shadow-2xl">
-                <span className="text-4xl">😎</span>
-              </div>
-              <h2 className="text-3xl font-bold mb-4 tracking-tight">Create Your AI Avatar</h2>
-              <p className="text-muted-foreground mb-10 text-lg">
-                Design a custom 3D companion to guide you through your financial journey.
-              </p>
-              
-              <Button 
-                size="lg" 
-                className="rounded-full w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow"
-                onClick={() => setStep("create")}
+      <section className="relative z-10 flex flex-col items-center px-6 pt-8 pb-24">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.88 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 180, damping: 18 }}
+          className="relative flex min-h-[320px] w-full items-center justify-center"
+        >
+          <div className="absolute bottom-8 h-36 w-36 rounded-full bg-primary/20 blur-3xl" />
+          <FinbroMascot mood={mood} size="xl" />
+        </motion.div>
+
+        <div className="w-full max-w-md">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-black tracking-tight">FinBro</h2>
+              <p className="text-muted-foreground">Твой игровой финансовый наставник</p>
+            </div>
+            <div className="rounded-2xl border border-primary/25 bg-primary/15 px-4 py-2 text-right">
+              <div className="text-xs font-semibold uppercase tracking-wider text-primary/80">Level</div>
+              <div className="text-2xl font-black text-primary">{level}</div>
+            </div>
+          </div>
+
+          <div className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4">
+            <div className="mb-2 flex justify-between text-sm font-semibold">
+              <span>Опыт героя</span>
+              <span className="text-primary">{xp}%</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-white/10">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${xp}%` }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                className="h-full rounded-full bg-gradient-to-r from-[#30D5C8] via-[#37A7FF] to-primary"
+              />
+            </div>
+          </div>
+
+          <div className="mb-6 grid grid-cols-3 gap-3">
+            {rewards.map((reward) => {
+              const Icon = reward.icon;
+              return (
+                <div key={reward.title} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <Icon className="mb-3 h-5 w-5 text-warning" />
+                  <div className="text-lg font-black leading-tight">{reward.value}</div>
+                  <div className="mt-1 text-[11px] leading-tight text-muted-foreground">{reward.title}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-bold">Эмоция героя</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full text-muted-foreground"
+                onClick={() => setMood("idle")}
               >
-                Start Creator
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <RotateCcw className="h-4 w-4" />
               </Button>
-            </motion.div>
-          )}
+            </div>
 
-          {/* STEP 2: AVATURN CREATOR */}
-          {step === "create" && (
-            <motion.div 
-              key="create"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full h-[85vh] max-w-3xl mx-auto"
-            >
-              <AvaturnCreator onAvatarExported={handleAvatarExported} />
-            </motion.div>
-          )}
+            <div className="grid grid-cols-2 gap-2">
+              {moodOptions.map((option) => {
+                const Icon = option.icon;
+                const isActive = mood === option.mood;
 
-          {/* STEP 3: RESULT SCREEN */}
-          {step === "result" && (
-            <motion.div 
-              key="result"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="w-full h-full max-h-[85vh] max-w-md mx-auto flex flex-col"
-            >
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold tracking-tight mb-2">Here is your Avatar!</h2>
-                <p className="text-muted-foreground">Looking good! You can rotate the model to inspect it.</p>
-              </div>
-
-              {/* 3D Viewer Container */}
-              <div className="flex-1 w-full bg-[#0F1117] rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden flex flex-col items-center mb-6">
-                <AvatarViewer />
-              </div>
-              
-              <div className="flex flex-col gap-3">
-                <Button 
-                  size="lg" 
-                  className="rounded-full w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow"
-                  onClick={completeFlow}
-                >
-                  Looks Good! Continue
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-
-                <Button 
-                  variant="outline"
-                  size="lg" 
-                  className="rounded-full w-full h-14 text-lg font-medium border-white/10 hover:bg-white/5"
-                  onClick={handleDownload}
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Скачать модель (.glb)
-                </Button>
-
-                <Button 
-                  variant="ghost"
-                  size="lg" 
-                  className="rounded-full w-full h-14 text-lg font-medium text-muted-foreground hover:bg-white/5 hover:text-white"
-                  onClick={handleRetake}
-                >
-                  <RefreshCcw className="w-4 h-4 mr-2" />
-                  Redesign Avatar
-                </Button>
-              </div>
-            </motion.div>
-          )}
-          
-        </AnimatePresence>
-      </div>
+                return (
+                  <Button
+                    key={option.mood}
+                    type="button"
+                    variant={isActive ? "default" : "outline"}
+                    className={cn(
+                      "h-12 justify-start gap-2 rounded-2xl text-sm",
+                      isActive ? "shadow-lg shadow-primary/20" : "border-white/10 bg-white/5"
+                    )}
+                    onClick={() => setMood(option.mood)}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

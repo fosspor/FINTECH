@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Target, ArrowRight, TrendingUp, Loader2 } from "lucide-react";
+import { AlertCircle, Target, ArrowRight, TrendingUp, Loader2, Wallet, ReceiptText, CreditCard, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -12,11 +12,48 @@ type DiagnosisData = {
   first_recommendation: string;
 };
 
+type ProfileData = {
+  monthly_income: number | null;
+  mandatory_expenses: number | null;
+  free_money: number | null;
+  has_credit: boolean;
+  debts?: Array<{
+    type: string;
+    amount: number | null;
+    monthly_payment: number | null;
+  }>;
+  savings_months: number | null;
+  main_goal: string | null;
+  spending_leaks: string[];
+  risk_zone: "green" | "yellow" | "red";
+  missing_fields: string[];
+};
+
+const riskCopy = {
+  green: {
+    title: "Зелёная зона",
+    text: "База выглядит спокойно, можно усиливать привычки и цели.",
+  },
+  yellow: {
+    title: "Жёлтая зона",
+    text: "Твои финансы требуют внимания, но ситуация под контролем.",
+  },
+  red: {
+    title: "Красная зона",
+    text: "Сначала снизим давление долгов и обязательных платежей.",
+  },
+};
+
+const formatMoney = (value: number | null) =>
+  typeof value === "number" ? `${new Intl.NumberFormat("ru-RU").format(value)} ₽` : "не указано";
+
 export default function DiagnosisPage() {
   const [diagnosis, setDiagnosis] = useState<DiagnosisData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("finbro_diagnosis");
+    const storedProfile = localStorage.getItem("finbro_profile");
     if (stored) {
       try {
         setDiagnosis(JSON.parse(stored));
@@ -31,6 +68,14 @@ export default function DiagnosisPage() {
         first_recommendation: "Начать отслеживать ежедневные расходы в течение недели"
       });
     }
+
+    if (storedProfile) {
+      try {
+        setProfile(JSON.parse(storedProfile));
+      } catch (e) {
+        console.error("Failed to parse profile", e);
+      }
+    }
   }, []);
 
   if (!diagnosis) {
@@ -40,6 +85,8 @@ export default function DiagnosisPage() {
       </div>
     );
   }
+
+  const risk = riskCopy[profile?.risk_zone ?? "yellow"];
 
   return (
     <main className="flex-1 flex flex-col min-h-0 h-[100dvh] max-w-2xl mx-auto w-full bg-background relative overflow-y-auto">
@@ -58,9 +105,77 @@ export default function DiagnosisPage() {
               <span className="text-warning-foreground font-black text-3xl">!</span>
             </div>
           </div>
-          <h1 className="text-4xl font-extrabold mb-3 tracking-tight">Жёлтая зона</h1>
-          <p className="text-muted-foreground text-lg max-w-[280px]">Твои финансы требуют внимания, но ситуация под контролем.</p>
+          <h1 className="text-4xl font-extrabold mb-3 tracking-tight">{risk.title}</h1>
+          <p className="text-muted-foreground text-lg max-w-[280px]">{risk.text}</p>
         </motion.div>
+
+        {profile && (
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, type: "spring" }}
+            className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-lg"
+          >
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-black">Профиль FinClip</h2>
+                <p className="text-sm text-muted-foreground">Что уже понятно из разговора</p>
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                {profile.risk_zone}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
+                <Wallet className="w-5 h-5 text-success mb-2" />
+                <p className="text-xs text-muted-foreground">Доход</p>
+                <p className="text-base font-bold">{formatMoney(profile.monthly_income)}</p>
+              </div>
+              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
+                <ReceiptText className="w-5 h-5 text-warning mb-2" />
+                <p className="text-xs text-muted-foreground">Обязательные траты</p>
+                <p className="text-base font-bold">{formatMoney(profile.mandatory_expenses)}</p>
+              </div>
+              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
+                <TrendingUp className="w-5 h-5 text-primary mb-2" />
+                <p className="text-xs text-muted-foreground">Свободные деньги</p>
+                <p className="text-base font-bold">{formatMoney(profile.free_money)}</p>
+              </div>
+              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
+                <CreditCard className="w-5 h-5 text-destructive mb-2" />
+                <p className="text-xs text-muted-foreground">Долги</p>
+                <p className="text-base font-bold">{profile.has_credit ? "есть" : "не указаны"}</p>
+              </div>
+            </div>
+
+            {(profile.main_goal || profile.spending_leaks.length > 0 || profile.missing_fields.length > 0) && (
+              <div className="mt-4 space-y-3 text-sm">
+                {profile.main_goal && (
+                  <p>
+                    <span className="text-muted-foreground">Цель:</span>{" "}
+                    <span className="font-semibold">{profile.main_goal}</span>
+                  </p>
+                )}
+                {profile.spending_leaks.length > 0 && (
+                  <p>
+                    <span className="text-muted-foreground">Утечки:</span>{" "}
+                    <span className="font-semibold">{profile.spending_leaks.join(", ")}</span>
+                  </p>
+                )}
+                {profile.missing_fields.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-2xl bg-warning/10 border border-warning/20 p-3">
+                    <HelpCircle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                    <p>
+                      <span className="text-warning font-semibold">Нужно уточнить:</span>{" "}
+                      {profile.missing_fields.join(", ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.section>
+        )}
 
         {/* Glass Cards */}
         <motion.div 
