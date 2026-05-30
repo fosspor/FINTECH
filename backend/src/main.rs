@@ -50,6 +50,7 @@ async fn main() {
         .route("/auth/login", post(auth::routes::login))
         
         // Voice & TTS routes
+        .route("/api/voice/transcribe", post(voice::routes::transcribe))
         .route("/voice/transcribe", post(voice::routes::transcribe))
         .route("/tts/generate", post(tts::routes::generate))
         

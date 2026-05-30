@@ -18,9 +18,11 @@ type Message = {
   isAudio?: boolean;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const CHAT_HISTORY_STORAGE_KEY = "finbro_chat_messages";
 const API_WAITING_MESSAGE = "ожидается api";
+const VOICE_LOADING_MESSAGE = "Распознаю голос...";
+const VOICE_RECOGNITION_ERROR_MESSAGE = "Не получилось распознать, попробуй ещё раз.";
 const INITIAL_CHAT_PROMPT =
   "Начни диалог с пользователем: коротко представься как FinClip и задай первый вопрос для финансового профиля.";
 const LEGACY_PLACEHOLDER_PATTERNS = [
@@ -223,7 +225,7 @@ export default function Home() {
     const tempMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: API_WAITING_MESSAGE,
+      content: VOICE_LOADING_MESSAGE,
       isAudio: true,
     };
 
@@ -234,15 +236,32 @@ export default function Home() {
     try {
       const formData = new FormData();
       if (audioBlob) {
-        formData.append("audio", audioBlob, "voice.webm");
+        formData.append("audio", audioBlob, audioBlob.type === "audio/lpcm" ? "voice.raw" : "voice.ogg");
       }
 
-      const transcriptionResponse = await fetch(`${API_URL}/voice/transcribe`, {
+      const transcriptionResponse = await fetch(`${API_URL}/api/voice/transcribe`, {
         method: "POST",
         body: formData,
       });
+
+      if (!transcriptionResponse.ok) {
+        throw new Error(`Voice transcription failed: ${transcriptionResponse.status}`);
+      }
+
       const transcription = await transcriptionResponse.json();
-      const transcribedText = transcription.text || API_WAITING_MESSAGE;
+      const transcribedText = transcription.text?.trim();
+
+      if (!transcribedText) {
+        const errorMessage = transcription.error || VOICE_RECOGNITION_ERROR_MESSAGE;
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === tempMessage.id ? { ...message, content: errorMessage, isAudio: false } : message
+          )
+        );
+        setIsTyping(false);
+        return;
+      }
+
       const nextMessages = [...messages, { ...tempMessage, content: transcribedText, isAudio: false }];
 
       setMessages(nextMessages);
@@ -258,7 +277,7 @@ export default function Home() {
       setMessages((prev) =>
         prev.map((message) =>
           message.id === tempMessage.id
-            ? { ...message, content: API_WAITING_MESSAGE, isAudio: false }
+            ? { ...message, content: VOICE_RECOGNITION_ERROR_MESSAGE, isAudio: false }
             : message
         )
       );
