@@ -30,7 +30,7 @@ export default function GamesPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        const mapped = parsed.map((g: any) => ({
+        const mapped = parsed.map((g: GameData) => ({
           ...g,
           icon: ICON_MAP[g.icon_name] || ShoppingCart
         }));
