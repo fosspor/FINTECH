@@ -27,17 +27,33 @@ pub async fn chat(Json(payload): Json<ChatRequestPayload>) -> Json<Value> {
 }
 
 pub async fn diagnose(Json(payload): Json<DiagnoseRequestPayload>) -> Json<Value> {
-    let system_prompt = "Ты FinBro - финансовый эксперт. Твоя задача - проанализировать диалог с пользователем и выдать краткий, точный диагноз.
-Ответь СТРОГО в формате JSON без markdown разметки:
+    let system_prompt = r#"Ты FinBro - финансовый эксперт и наставник.
+Твоя задача - проанализировать диалог с пользователем, выдать краткий диагноз его финансов и составить персональный путь развития (Roadmap) из 4-5 уровней.
+Ответь СТРОГО в формате JSON без markdown разметки. Структура ответа:
 {
-  \"diagnosis\": {
-    \"main_problem\": \"Краткая суть главной проблемы (например: Нет финансовой подушки)\",
-    \"main_risk\": \"Главный риск ситуации (например: Незащищенность при потере работы)\",
-    \"first_recommendation\": \"Конкретный первый шаг (например: Отложить 10% со следующей зарплаты)\"
-  }
-}";
+  "diagnosis": {
+    "main_problem": "Краткая суть главной проблемы (например: Нет финансовой подушки)",
+    "main_risk": "Главный риск ситуации",
+    "first_recommendation": "Конкретный первый шаг"
+  },
+  "path": [
+    {
+      "id": 1,
+      "title": "Название уровня (например: Осознанность)",
+      "description": "Мотивирующее описание уровня",
+      "icon_name": "Sprout",
+      "tasks": [
+        { "id": 1, "title": "Название задания 1", "type": "quiz", "crystals": 20 },
+        { "id": 2, "title": "Название задания 2", "type": "action", "crystals": 50 }
+      ]
+    }
+  ]
+}
 
-    let prompt = format!("Проанализируй эти ответы пользователя:\n\n{}", payload.chat_history);
+Возможные icon_name: Sprout, Shield, PiggyBank, TrendingUp, Rocket, Target, Zap, AlertCircle.
+Возможные типы заданий (type): mini_game, quiz, lesson, action. Уровни должны логично вытекать из диагноза пользователя."#;
+
+    let prompt = format!("Проанализируй эти ответы пользователя и сформируй профиль и путь:\n\n{}", payload.chat_history);
     
     match call_qwen(&prompt, Some(system_prompt)).await {
         Ok(response) => {
@@ -51,7 +67,8 @@ pub async fn diagnose(Json(payload): Json<DiagnoseRequestPayload>) -> Json<Value
                             "main_problem": "Ошибка анализа",
                             "main_risk": "Данные не распознаны",
                             "first_recommendation": "Попробуйте пройти опрос заново"
-                        }
+                        },
+                        "path": []
                     }))
                 }
             }
@@ -63,7 +80,8 @@ pub async fn diagnose(Json(payload): Json<DiagnoseRequestPayload>) -> Json<Value
                     "main_problem": "Сервис временно недоступен",
                     "main_risk": "-",
                     "first_recommendation": "-"
-                }
+                },
+                "path": []
             }))
         }
     }
