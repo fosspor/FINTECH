@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { BottomNav } from "@/components/bottom-nav";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
@@ -16,8 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className="dark">
-      <body className={`${inter.className} bg-background text-foreground antialiased h-[100dvh] flex flex-col overflow-hidden`}>
+      <body className={`${inter.className} bg-background text-foreground antialiased h-[100dvh] flex flex-col overflow-hidden mx-auto max-w-2xl w-full border-x border-border/10 shadow-2xl shadow-primary/5`}>
         {children}
+        <BottomNav />
       </body>
     </html>
   );
