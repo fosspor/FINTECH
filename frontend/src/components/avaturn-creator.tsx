@@ -16,7 +16,7 @@ export function AvaturnCreator({ onAvatarExported }: AvaturnCreatorProps) {
 
     const sdk = new AvaturnSDK();
     
-    // Initialize the SDK with the official Avaturn demo URL
+    // Initialize the SDK with the official Avaturn dev URL
     sdk.init(containerRef.current, {
       url: "https://demo.avaturn.dev"
     }).then(() => {
@@ -38,7 +38,7 @@ export function AvaturnCreator({ onAvatarExported }: AvaturnCreatorProps) {
   }, [onAvatarExported]);
 
   return (
-    <div className="w-full h-full relative bg-background rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
+    <div className="w-full h-full relative bg-background rounded-[32px] overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
       {/* Container for Avaturn SDK iframe injection */}
       <div ref={containerRef} className="w-full h-full relative z-20" />
       

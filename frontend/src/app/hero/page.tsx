@@ -1,52 +1,32 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAvatarStore } from "@/state/useAvatarStore";
 import { AvatarViewer } from "@/components/avatar-viewer";
+import { AvaturnCreator } from "@/components/avaturn-creator";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Upload, Camera, Loader2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 
-type FlowStep = "upload" | "generating" | "result";
+type FlowStep = "welcome" | "create" | "result";
 
-export default function SelfieAvatarFlow() {
-  const [step, setStep] = useState<FlowStep>("upload");
-  const [preview, setPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { avatarUrl, setAvatarUrl } = useAvatarStore();
+export default function HeroPage() {
+  const [step, setStep] = useState<FlowStep>("welcome");
+  const { setAvatarUrl } = useAvatarStore();
   const router = useRouter();
 
-  // Handle photo selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setPreview(URL.createObjectURL(file));
-    }
-  };
-
-  // Mock process: Upload selfie -> Wait -> Receive avatar GLB URL
-  const generateAvatar = async () => {
-    setStep("generating");
-    
-    // Simulate external avatar service processing time
-    await new Promise(resolve => setTimeout(resolve, 3500));
-    
-    // Mock response from external avatar generation API (e.g. ReadyPlayerMe / Avaturn)
-    const externalResponse = {
-      avatarId: "usr_ai_12345",
-      avatarUrl: "/avatar/avatar.glb"
-    };
-
-    setAvatarUrl(externalResponse.avatarUrl);
+  const handleAvatarExported = (url: string) => {
+    setAvatarUrl(url);
+    // Optionally persist to local storage or backend here
+    localStorage.setItem("avaturn_url", url);
     setStep("result");
   };
 
   const handleRetake = () => {
-    setPreview(null);
-    setAvatarUrl(""); // clear it correctly to string empty or you can adjust state to accept null
-    setStep("upload");
+    setAvatarUrl("");
+    setStep("create");
   };
 
   const completeFlow = () => {
@@ -66,93 +46,47 @@ export default function SelfieAvatarFlow() {
         </div>
       </header>
 
-      <div className="flex-1 w-full flex items-center justify-center p-6 relative">
+      <div className="flex-1 w-full flex items-center justify-center p-4 md:p-6 relative">
         <AnimatePresence mode="wait">
           
-          {/* STEP 1: UPLOAD PHOTO */}
-          {step === "upload" && (
+          {/* STEP 1: WELCOME SCREEN */}
+          {step === "welcome" && (
             <motion.div 
-              key="upload"
+              key="welcome"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm mx-auto flex flex-col items-center"
+              className="w-full max-w-sm mx-auto flex flex-col items-center text-center"
             >
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/30">
-                  <Camera className="w-8 h-8" />
-                </div>
-                <h2 className="text-3xl font-bold mb-2 tracking-tight">Snap a Selfie</h2>
-                <p className="text-muted-foreground">
-                  Upload a photo of your face, and our AI will generate a perfect 3D avatar for you.
-                </p>
+              <div className="w-24 h-24 bg-primary/20 text-primary rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-primary/30 shadow-2xl">
+                <span className="text-4xl">😎</span>
               </div>
-
-              {/* Upload Dropzone / Preview */}
-              <div 
-                className="w-full aspect-[3/4] bg-white/5 border-2 border-dashed border-white/20 rounded-[32px] flex flex-col items-center justify-center overflow-hidden relative cursor-pointer hover:bg-white/10 transition-colors group mb-8"
-                onClick={() => !preview && fileInputRef.current?.click()}
-              >
-                {preview ? (
-                  <>
-                    <img src={preview} alt="Selfie preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="rounded-full">
-                        <RefreshCcw className="w-4 h-4 mr-2" /> Change Photo
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-10 h-10 text-white/40 mb-3" />
-                    <span className="font-medium text-white/80">Tap to choose photo</span>
-                  </>
-                )}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleFileChange}
-                />
-              </div>
-
+              <h2 className="text-3xl font-bold mb-4 tracking-tight">Create Your AI Avatar</h2>
+              <p className="text-muted-foreground mb-10 text-lg">
+                Design a custom 3D companion to guide you through your financial journey.
+              </p>
+              
               <Button 
                 size="lg" 
-                className="rounded-full w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow disabled:opacity-50"
-                disabled={!preview}
-                onClick={generateAvatar}
+                className="rounded-full w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow"
+                onClick={() => setStep("create")}
               >
-                Generate Avatar
+                Start Creator
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </motion.div>
           )}
 
-          {/* STEP 2: GENERATING SCREEN */}
-          {step === "generating" && (
+          {/* STEP 2: AVATURN CREATOR */}
+          {step === "create" && (
             <motion.div 
-              key="generating"
+              key="create"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center text-center px-6"
+              className="w-full h-[85vh] max-w-3xl mx-auto"
             >
-              {/* Neural network particles effect / Loader */}
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                className="relative flex items-center justify-center w-48 h-48 mb-8"
-              >
-                <div className="absolute w-full h-full rounded-full border-[2px] border-primary border-dashed opacity-40 mix-blend-screen" />
-                <div className="absolute w-3/4 h-3/4 rounded-full border-[4px] border-primary/50 border-dotted opacity-60" />
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-              </motion.div>
-              
-              <h2 className="text-2xl font-bold mb-2">Analyzing Features...</h2>
-              <p className="text-muted-foreground max-w-xs">
-                Sending your selfie to our 3D processing engine. Please wait a moment.
-              </p>
+              <AvaturnCreator onAvatarExported={handleAvatarExported} />
             </motion.div>
           )}
 
@@ -180,7 +114,8 @@ export default function SelfieAvatarFlow() {
                   className="rounded-full w-full h-14 text-lg font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow"
                   onClick={completeFlow}
                 >
-                  Looks Good! Save Avatar
+                  Looks Good! Continue
+                  <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button 
                   variant="ghost"
@@ -188,7 +123,8 @@ export default function SelfieAvatarFlow() {
                   className="rounded-full w-full h-14 text-lg font-medium text-muted-foreground hover:bg-white/5 hover:text-white"
                   onClick={handleRetake}
                 >
-                  Retake Photo
+                  <RefreshCcw className="w-4 h-4 mr-2" />
+                  Redesign Avatar
                 </Button>
               </div>
             </motion.div>
