@@ -1,21 +1,65 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Gem, Lock } from "lucide-react";
+import { ArrowLeft, Play, Gem, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
 
-const LEVEL_TASKS = [
-  { id: 1, title: "Импульсивная покупка", type: "mini_game", crystals: 20, status: "completed" },
-  { id: 2, title: "Куда уходят деньги?", type: "quiz", crystals: 15, status: "completed" },
-  { id: 3, title: "Правило 50/30/20", type: "lesson", crystals: 10, status: "current" },
-  { id: 4, title: "Бюджет на неделю", type: "action", crystals: 50, status: "locked" },
-];
+type TaskData = {
+  id: number;
+  title: string;
+  type: string;
+  crystals: number;
+};
+
+type LevelDetails = {
+  id: number;
+  title: string;
+  description: string;
+  tasks: TaskData[];
+};
 
 export default function LevelDetailsPage() {
   const params = useParams();
   const levelId = params?.id;
+  const [level, setLevel] = useState<LevelDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("finbro_path");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const found = parsed.find((l: LevelDetails) => l.id.toString() === levelId);
+        setLevel(found || null);
+      } catch (e) {
+        console.error("Failed to parse dynamic path", e);
+      }
+    }
+    setLoading(false);
+  }, [levelId]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-[100dvh] bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!level) {
+    return (
+      <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative items-center justify-center text-center p-6">
+        <h2 className="text-xl font-bold mb-2">Уровень не найден</h2>
+        <p className="text-muted-foreground mb-6">Возможно, он был удален или вы перешли по неверной ссылке.</p>
+        <Link href="/path">
+          <Button>Вернуться к пути</Button>
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative z-50">
@@ -31,17 +75,18 @@ export default function LevelDetailsPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold mb-2 text-primary">Контроль расходов</h1>
+          <h1 className="text-3xl font-extrabold mb-2 text-primary">{level.title}</h1>
           <p className="text-muted-foreground text-lg">
-            Научись замечать, куда утекают деньги, и возьми их под свой контроль без жесткой экономии.
+            {level.description}
           </p>
         </div>
 
         <div className="flex flex-col gap-4">
-          {LEVEL_TASKS.map((task, idx) => {
-            const isCompleted = task.status === "completed";
-            const isCurrent = task.status === "current";
-            const isLocked = task.status === "locked";
+          {level.tasks?.map((task: TaskData, idx: number) => {
+            // For MVP dynamically mock status
+            const isCompleted = idx === 0;
+            const isCurrent = idx === 1;
+            const isLocked = idx > 1;
 
             return (
               <motion.div

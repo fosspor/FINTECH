@@ -69,6 +69,25 @@ export default function Home() {
     }
   }, [audioBlob]);
 
+  const finishOnboarding = async (finalMessages: Message[]) => {
+    try {
+      const historyStr = finalMessages.map(m => `${m.role}: ${m.content}`).join("\n");
+      const res = await fetch("http://localhost:8000/ai/diagnose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_history: historyStr }),
+      });
+      const data = await res.json();
+      localStorage.setItem("finbro_diagnosis", JSON.stringify(data.diagnosis));
+      if (data.path) {
+        localStorage.setItem("finbro_path", JSON.stringify(data.path));
+      }
+    } catch (e) {
+      console.error("Failed to generate diagnosis", e);
+    }
+    router.push("/diagnosis");
+  };
+
   const proceedOnboarding = (userText: string) => {
     const nextStep = step + 1;
     setStep(nextStep);
@@ -84,17 +103,17 @@ export default function Home() {
           quickReplies: ONBOARDING_FLOW[nextStep].replies
         }]);
       } else {
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: "Круто! Я всё записал. Сейчас проанализирую твою ситуацию и выдам персональный диагноз..."
-        }]);
-        
-        setTimeout(() => {
-          router.push("/diagnosis");
-        }, 2000);
+        setMessages(prev => {
+          const updated: Message[] = [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Круто! Я всё записал. Сейчас проанализирую твою ситуацию и выдам персональный диагноз..."
+          }];
+          finishOnboarding(updated);
+          return updated;
+        });
       }
-    }, 1200); // 1.2s typing delay for realism
+    }, 1200);
   };
 
   const handleAudioSubmit = async (blob: Blob) => {

@@ -1,20 +1,68 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sprout, Shield, PiggyBank, TrendingUp, Rocket, Flame, Gem, Check, Lock } from "lucide-react";
+import { Sprout, Shield, PiggyBank, TrendingUp, Rocket, Target, Zap, AlertCircle, Flame, Gem, Check, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const LEVELS = [
-  { id: 1, title: "Финансовая осознанность", icon: Sprout, status: "completed", color: "bg-success" },
-  { id: 2, title: "Контроль расходов", icon: Shield, status: "current", color: "bg-primary" },
-  { id: 3, title: "Первая подушка", icon: PiggyBank, status: "locked", color: "bg-muted" },
-  { id: 4, title: "Устойчивость", icon: TrendingUp, status: "locked", color: "bg-muted" },
-  { id: 5, title: "Свобода", icon: Rocket, status: "locked", color: "bg-muted" },
-];
+const ICON_MAP: Record<string, React.ElementType> = {
+  Sprout, Shield, PiggyBank, TrendingUp, Rocket, Target, Zap, AlertCircle
+};
+
+type LevelData = {
+  id: number;
+  title: string;
+  description: string;
+  icon_name: string;
+  status: string;
+  icon: React.ElementType;
+};
 
 export default function PathPage() {
+  const [levels, setLevels] = useState<LevelData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("finbro_path");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const withStatus = parsed.map((lvl: Omit<LevelData, "status" | "icon">, i: number) => ({
+          ...lvl,
+          status: i === 0 ? "current" : "locked",
+          icon: ICON_MAP[lvl.icon_name] || Sprout
+        }));
+        setLevels(withStatus);
+      } catch (e) {
+        console.error("Failed to parse dynamic path", e);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-[100dvh] bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Fallback to empty state if no path exists
+  if (levels.length === 0) {
+    return (
+      <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative items-center justify-center text-center p-6">
+        <h2 className="text-xl font-bold mb-2">Путь еще не построен</h2>
+        <p className="text-muted-foreground mb-6">Тебе нужно пообщаться с FinBro, чтобы он составил персональный план.</p>
+        <Link href="/">
+          <Button>Вернуться в чат</Button>
+        </Link>
+      </main>
+    );
+  }
   return (
     <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative">
       {/* Top Header */}
@@ -39,7 +87,7 @@ export default function PathPage() {
           {/* Connecting dashed line in the center */}
           <div className="absolute top-12 bottom-12 left-1/2 -translate-x-1/2 w-1 border-l-4 border-dashed border-border/40 z-0" />
 
-          {LEVELS.map((level, index) => {
+          {levels.map((level, index) => {
             const isEven = index % 2 === 0;
             const Icon = level.icon;
             const isCompleted = level.status === "completed";
