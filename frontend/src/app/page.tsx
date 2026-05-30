@@ -8,26 +8,51 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
+import { useRouter } from "next/navigation";
 
 type Message = {
   id: string;
   role: "assistant" | "user";
   content: string;
   isAudio?: boolean;
+  quickReplies?: string[];
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const ONBOARDING_FLOW = [
+  {
+    text: "Привет! Я FinBro — твой личный финансовый наставник. Давай соберем твой финансовый профиль. Сколько примерно ты зарабатываешь в месяц?",
+    replies: ["Менее 50 000 ₽", "50 000 – 100 000 ₽", "100 000 – 200 000 ₽", "Более 200 000 ₽"]
+  },
+  {
+    text: "Понял. А сколько примерно уходит на обязательные траты (жильё, еда, транспорт)?",
+    replies: ["Меньше половины", "Около половины", "Почти всё"]
+  },
+  {
+    text: "Есть ли у тебя кредиты или долги?",
+    replies: ["Нет долгов", "Только ипотека", "Потребительские кредиты", "Кредитные карты"]
+  },
+  {
+    text: "Отлично. А как насчет сбережений 'на черный день'?",
+    replies: ["Вообще нет", "Хватит на месяц", "Хватит на 3-6 месяцев", "Больше 6 месяцев"]
+  },
+  {
+    text: "Последний вопрос: какая у тебя сейчас главная финансовая цель?",
+    replies: ["Накопить подушку безопасности", "Быстрее закрыть долги", "Начать инвестировать", "Коплю на крупную покупку"]
+  }
+];
 
 export default function Home() {
-  const [started, setStarted] = useState(false);
+  const router = useRouter();
+  const [step, setStep] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "welcome",
+      id: "welcome-chat",
       role: "assistant",
-      content: "Привет. Я помогу разобраться с твоими финансами и принимать более уверенные финансовые решения. Расскажи, что сейчас происходит.",
+      content: ONBOARDING_FLOW[0].text,
+      quickReplies: ONBOARDING_FLOW[0].replies
     },
   ]);
   const [input, setInput] = useState("");
@@ -44,79 +69,77 @@ export default function Home() {
     }
   }, [audioBlob]);
 
+  const proceedOnboarding = (userText: string) => {
+    const nextStep = step + 1;
+    setStep(nextStep);
+    setIsTyping(true);
+
+    setTimeout(() => {
+      setIsTyping(false);
+      if (nextStep < ONBOARDING_FLOW.length) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: ONBOARDING_FLOW[nextStep].text,
+          quickReplies: ONBOARDING_FLOW[nextStep].replies
+        }]);
+      } else {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "Круто! Я всё записал. Сейчас проанализирую твою ситуацию и выдам персональный диагноз..."
+        }]);
+        
+        setTimeout(() => {
+          router.push("/diagnosis");
+        }, 2000);
+      }
+    }, 1200); // 1.2s typing delay for realism
+  };
+
   const handleAudioSubmit = async (blob: Blob) => {
-    // Show audio is processing
+    // For MVP frontend we simulate transcription to keep the flow moving fast
     const tempId = Date.now().toString();
-    const newMsg: Message = { id: tempId, role: "user", content: "🎤 Голосовое сообщение (распознавание)...", isAudio: true };
-    setMessages((prev) => [...prev, newMsg]);
+    const newMsg: Message = { id: tempId, role: "user", content: "🎤 Распознаю аудио...", isAudio: true };
+    
+    setMessages((prev) => {
+      const updated = [...prev];
+      if (updated.length > 0 && updated[updated.length - 1].role === "assistant") {
+        updated[updated.length - 1].quickReplies = undefined;
+      }
+      return [...updated, newMsg];
+    });
+    
     setAudioBlob(null);
     setIsTyping(true);
 
-    try {
-      const formData = new FormData();
-      formData.append("audio", blob, "audio.webm");
-
-      // 1. Transcribe
-      const transcribeRes = await fetch(`${API_URL}/voice/transcribe`, {
-        method: "POST",
-        body: formData,
-      });
-      const transcribeData = await transcribeRes.json();
-      const transcribedText = transcribeData.text || "Ошибка распознавания";
-
-      // 2. Update message with text
+    // Simulate whisper API delay
+    setTimeout(() => {
+      const simulatedTranscription = ONBOARDING_FLOW[step]?.replies[0] || "Вот мой ответ";
       setMessages((prev) => 
-        prev.map(m => m.id === tempId ? { ...m, content: transcribedText, isAudio: false } : m)
+        prev.map(m => m.id === tempId ? { ...m, content: simulatedTranscription, isAudio: false } : m)
       );
-
-      // 3. Send text to AI
-      await fetchAiResponse(transcribedText);
-    } catch (e) {
-      console.error(e);
-      setMessages((prev) => 
-        prev.map(m => m.id === tempId ? { ...m, content: "❌ Ошибка обработки аудио", isAudio: false } : m)
-      );
-      setIsTyping(false);
-    }
-  };
-
-  const fetchAiResponse = async (text: string) => {
-    try {
-      const res = await fetch(`${API_URL}/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json();
       
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: data.response || "Произошла ошибка при обращении к AI.",
-        },
-      ]);
-    } catch (e) {
-      console.error(e);
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), role: "assistant", content: "Произошла ошибка соединения с сервером." },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
+      proceedOnboarding(simulatedTranscription);
+    }, 1500);
   };
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const text = input;
-    const newMsg: Message = { id: Date.now().toString(), role: "user", content: text };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
-    setIsTyping(true);
+  const handleSend = (text: string = input) => {
+    if (!text.trim()) return;
     
-    await fetchAiResponse(text);
+    const newMsg: Message = { id: Date.now().toString(), role: "user", content: text };
+    
+    setMessages((prev) => {
+      const updated = [...prev];
+      // Hide quick replies of the previous message
+      if (updated.length > 0 && updated[updated.length - 1].role === "assistant") {
+        updated[updated.length - 1].quickReplies = undefined;
+      }
+      return [...updated, newMsg];
+    });
+    
+    setInput("");
+    proceedOnboarding(text);
   };
 
   const toggleRecording = () => {
@@ -130,154 +153,138 @@ export default function Home() {
   return (
     <main className="flex-1 flex flex-col min-h-0 max-w-2xl mx-auto w-full border-x border-border/10 bg-background relative overflow-hidden">
       <AnimatePresence mode="wait">
-        {!started ? (
-          <motion.div
-            key="welcome"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center justify-center h-full p-6 text-center z-10"
-          >
-            <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-8 border border-primary/30 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
-              <MessageSquare className="w-10 h-10 text-primary" />
+        <motion.div
+          key="chat"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col flex-1 min-h-0 z-10 w-full"
+        >
+          <header className="px-6 py-4 border-b border-border/10 bg-background/80 backdrop-blur-md shrink-0 z-20 flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center border border-primary/30">
+              <span className="text-xl leading-none">🦉</span>
             </div>
-            
-            <h1 className="text-3xl font-bold mb-4 tracking-tight">FinBro</h1>
-            <p className="text-xl text-muted-foreground mb-12 max-w-[280px] font-medium">
-              Твой персональный AI-наставник финансовых решений
-            </p>
-            
-            <Button 
-              size="lg" 
-              className="w-full max-w-sm rounded-full text-lg h-14"
-              onClick={() => setStarted(true)}
-            >
-              Начать общение
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="chat"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col flex-1 min-h-0 z-10 w-full"
-          >
-            <header className="px-6 py-4 border-b border-border/10 bg-background/80 backdrop-blur-md shrink-0 z-20 flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center border border-primary/30">
-                <MessageSquare className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-lg">FinBro</h2>
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  Всегда на связи
-                </p>
-              </div>
-            </header>
+            <div>
+              <h2 className="font-semibold text-lg">FinBro</h2>
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Анализ профиля
+              </p>
+            </div>
+          </header>
 
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="flex flex-col gap-6 p-6">
-                {messages.map((msg, i) => (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i === messages.length - 1 ? 0 : 0.1 }}
-                    key={msg.id}
-                    className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-                  >
-                    {msg.role === "assistant" && (
-                      <Avatar className="w-10 h-10 border border-primary/20 shrink-0 mt-auto mb-1">
-                        <AvatarFallback className="bg-primary/10 text-primary"><MessageSquare className="w-5 h-5"/></AvatarFallback>
-                      </Avatar>
-                    )}
-                    
-                    <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                      <div className={`p-4 rounded-3xl ${
-                        msg.role === "user" 
-                          ? "bg-primary text-primary-foreground rounded-br-sm" 
-                          : "bg-muted text-foreground rounded-bl-sm"
-                      }`}>
-                        <p className="text-[16px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                      
-                      {msg.role === "assistant" && i === 0 && messages.length === 1 && (
-                        <motion.div 
-                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                          className="flex gap-2 mt-2 flex-wrap"
-                        >
-                          <Button variant="outline" size="sm" className="rounded-full shadow-sm" onClick={toggleRecording}>
-                            <Mic className={`w-4 h-4 mr-2 ${isRecording ? "text-destructive animate-pulse" : "text-primary"}`} /> 
-                            {isRecording ? "Остановить запись" : "Рассказать голосом"}
-                          </Button>
-                          <Button variant="outline" size="sm" className="rounded-full shadow-sm" onClick={() => document.getElementById('chat-input')?.focus()}>
-                            ⌨️ Написать текстом
-                          </Button>
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                
-                {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4"
-                  >
-                    <Avatar className="w-10 h-10 border border-primary/20 shrink-0 mt-auto mb-1">
-                      <AvatarFallback className="bg-primary/10 text-primary"><MessageSquare className="w-5 h-5"/></AvatarFallback>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="flex flex-col gap-6 p-6">
+              {messages.map((msg, i) => (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  key={msg.id}
+                  className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                >
+                  {msg.role === "assistant" && (
+                    <Avatar className="w-10 h-10 border border-primary/20 shrink-0 mt-auto mb-1 bg-primary/10 items-center justify-center">
+                      <span className="text-lg leading-none">🦉</span>
                     </Avatar>
-                    <div className="p-4 rounded-3xl bg-muted text-foreground rounded-bl-sm flex items-center justify-center h-[56px] w-[72px]">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  )}
+                  
+                  <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                    <div className={`p-4 rounded-3xl ${
+                      msg.role === "user" 
+                        ? "bg-primary text-primary-foreground rounded-br-sm shadow-md" 
+                        : "bg-white/5 border border-white/10 text-foreground rounded-bl-sm backdrop-blur-md"
+                    }`}>
+                      <p className="text-[17px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                     </div>
-                  </motion.div>
-                )}
-                <div ref={messagesEndRef} className="h-1" />
-              </div>
-            </ScrollArea>
+                    
+                    {/* Quick Replies */}
+                    {msg.quickReplies && msg.role === "assistant" && i === messages.length - 1 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        transition={{ delay: 0.4 }}
+                        className="flex gap-2 mt-3 flex-wrap"
+                      >
+                        {msg.quickReplies.map((reply, idx) => (
+                          <motion.div
+                            key={reply}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 + (idx * 0.1) }}
+                          >
+                            <Button 
+                              variant="secondary" 
+                              onClick={() => handleSend(reply)}
+                              className="rounded-full bg-secondary/15 hover:bg-secondary/25 text-secondary-foreground border border-secondary/30 h-auto py-2.5 px-4 text-[15px] font-medium whitespace-normal text-left h-auto min-h-[40px]"
+                            >
+                              {reply}
+                            </Button>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+              
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-4"
+                >
+                  <Avatar className="w-10 h-10 border border-primary/20 shrink-0 mt-auto mb-1 bg-primary/10 items-center justify-center">
+                    <span className="text-lg leading-none">🦉</span>
+                  </Avatar>
+                  <div className="p-4 rounded-3xl bg-white/5 border border-white/10 text-foreground rounded-bl-sm flex items-center justify-center h-[56px] w-[72px]">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                </motion.div>
+              )}
+              <div ref={messagesEndRef} className="h-4" />
+            </div>
+          </ScrollArea>
 
-            <div className="p-4 bg-background border-t border-border/10 shrink-0">
-              <form 
-                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                className={`flex items-center gap-2 relative rounded-full p-1 border shadow-inner transition-colors ${
-                  isRecording ? "bg-destructive/10 border-destructive/30" : "bg-muted border-border/10"
+          <div className="p-4 bg-background border-t border-border/10 shrink-0">
+            <form 
+              onSubmit={(e) => { e.preventDefault(); handleSend(input); }}
+              className={`flex items-center gap-2 relative rounded-[1.5rem] p-1.5 border shadow-inner transition-colors ${
+                isRecording ? "bg-destructive/10 border-destructive/30" : "bg-white/5 border-white/10 backdrop-blur-md"
+              }`}
+            >
+              <Button 
+                type="button" 
+                size="icon" 
+                variant="ghost" 
+                onClick={toggleRecording}
+                className={`rounded-full shrink-0 w-12 h-12 ${
+                  isRecording 
+                    ? "text-destructive hover:text-destructive hover:bg-destructive/20 animate-pulse" 
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Button 
-                  type="button" 
-                  size="icon" 
-                  variant="ghost" 
-                  onClick={toggleRecording}
-                  className={`rounded-full shrink-0 ${
-                    isRecording 
-                      ? "text-destructive hover:text-destructive hover:bg-destructive/20 animate-pulse" 
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {isRecording ? <Square className="w-5 h-5" fill="currentColor" /> : <Mic className="w-5 h-5" />}
-                </Button>
-                <Input 
-                  id="chat-input"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={isRecording ? "Слушаю..." : "Написать сообщение..."} 
-                  disabled={isRecording}
-                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 px-2 text-[16px] h-12 disabled:opacity-50"
-                  autoComplete="off"
-                />
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  disabled={!input.trim() || isRecording || isTyping}
-                  className="rounded-full shrink-0 h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all disabled:opacity-50"
-                >
-                  <Send className="w-5 h-5 ml-0.5" />
-                </Button>
-              </form>
-            </div>
-          </motion.div>
-        )}
+                {isRecording ? <Square className="w-6 h-6" fill="currentColor" /> : <Mic className="w-6 h-6" />}
+              </Button>
+              <Input 
+                id="chat-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isRecording ? "Слушаю..." : "Ответить текстом..."} 
+                disabled={isRecording}
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 px-2 text-[17px] h-12 disabled:opacity-50"
+                autoComplete="off"
+              />
+              <Button 
+                type="submit" 
+                size="icon" 
+                disabled={!input.trim() || isRecording || isTyping}
+                className="rounded-full shrink-0 h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              >
+                <Send className="w-5 h-5 ml-0.5" />
+              </Button>
+            </form>
+          </div>
+        </motion.div>
       </AnimatePresence>
     </main>
   );
