@@ -50,7 +50,7 @@ export default function PathPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center h-[100dvh] bg-background">
+      <div className="flex-1 flex items-center justify-center min-h-0 bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -87,8 +87,8 @@ export default function PathPage() {
         </div>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col items-center py-12 px-6 relative w-full overflow-x-hidden min-h-[800px]">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="flex flex-col items-center py-12 px-6 pb-8 relative w-full overflow-x-hidden min-h-[800px]">
           {/* Connecting dashed line in the center */}
           <div className="absolute top-12 bottom-12 left-1/2 -translate-x-1/2 w-1 border-l-4 border-dashed border-border/40 z-0" />
 

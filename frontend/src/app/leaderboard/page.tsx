@@ -16,7 +16,7 @@ const LEADERBOARD = [
 
 export default function LeaderboardPage() {
   return (
-    <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative z-10 pb-20">
+    <main className="flex-1 flex flex-col min-h-0 w-full bg-background relative z-10">
       <header className="px-6 py-4 border-b border-border/10 bg-background/80 backdrop-blur-md sticky top-0 z-20 flex flex-col gap-2">
         <h2 className="font-semibold text-xl flex items-center gap-2">
           <Trophy className="w-5 h-5 text-warning" /> Рейтинг
@@ -24,8 +24,8 @@ export default function LeaderboardPage() {
         <p className="text-sm text-muted-foreground">Турнир Лиги Сбережений заканчивается через 2 дня.</p>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div className="p-6">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-6 pb-8">
           {/* Podium for Top 3 */}
           <div className="flex items-end justify-center gap-2 mb-10 mt-4 h-48 px-2">
             {/* Rank 2 */}

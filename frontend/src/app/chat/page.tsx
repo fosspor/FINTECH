@@ -19,6 +19,13 @@ type Message = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const JSON_API_HEADERS = {
+  "Content-Type": "application/json",
+  "ngrok-skip-browser-warning": "true",
+};
+const NGROK_API_HEADERS = {
+  "ngrok-skip-browser-warning": "true",
+};
 const CHAT_HISTORY_STORAGE_KEY = "finbro_chat_messages";
 const API_WAITING_MESSAGE = "ожидается api";
 const VOICE_LOADING_MESSAGE = "Распознаю голос...";
@@ -137,7 +144,7 @@ export default function Home() {
     try {
       const response = await fetch(`${API_URL}/ai/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_API_HEADERS,
         body: JSON.stringify({
           message: INITIAL_CHAT_PROMPT,
           context: "",
@@ -174,7 +181,7 @@ export default function Home() {
     try {
       const response = await fetch(`${API_URL}/ai/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_API_HEADERS,
         body: JSON.stringify({
           message: userMessage.content,
           context: getHistory(nextMessages.slice(0, -1)),
@@ -241,6 +248,7 @@ export default function Home() {
 
       const transcriptionResponse = await fetch(`${API_URL}/api/voice/transcribe`, {
         method: "POST",
+        headers: NGROK_API_HEADERS,
         body: formData,
       });
 
@@ -301,7 +309,7 @@ export default function Home() {
     try {
       const response = await fetch(`${API_URL}/ai/diagnose`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_API_HEADERS,
         body: JSON.stringify({ chat_history: getHistory(messages) }),
       });
       const data = await response.json();

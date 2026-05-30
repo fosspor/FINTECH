@@ -16,11 +16,8 @@ export function BottomNav() {
     { href: "/hero", icon: User, label: "Герой" },
   ];
 
-  // We don't show the bottom nav on the welcome screen
-  if (pathname === "/welcome") return null;
-
   return (
-    <div className="flex items-center justify-around p-3 bg-background/80 backdrop-blur-xl border-t border-border/10 shrink-0 safe-area-bottom">
+    <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-2xl items-center justify-around border-x border-t border-border/10 bg-background/90 px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl shadow-black/30 backdrop-blur-xl">
       {links.map((link) => {
         const isActive = pathname === link.href;
         const Icon = link.icon;
@@ -29,7 +26,7 @@ export function BottomNav() {
           <Link 
             key={link.href} 
             href={link.href}
-            className="flex flex-col items-center gap-1 p-2 w-16"
+            className="relative flex min-h-16 w-16 flex-col items-center justify-center gap-1 rounded-2xl p-1.5"
           >
             <div className={cn(
               "p-2 rounded-2xl transition-all duration-300",
@@ -40,13 +37,13 @@ export function BottomNav() {
               <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
             </div>
             {isActive && (
-              <span className="text-[10px] font-medium text-primary absolute bottom-1">
+              <span className="absolute bottom-0 max-w-full truncate px-1 text-[10px] font-medium text-primary">
                 {link.label}
               </span>
             )}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }
