@@ -5,7 +5,7 @@ import { useAvatarStore } from "@/state/useAvatarStore";
 import { AvatarViewer } from "@/components/avatar-viewer";
 import { AvaturnCreator } from "@/components/avaturn-creator";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, RefreshCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, RefreshCcw, Download } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,24 @@ export default function HeroPage() {
     // Optionally persist to local storage or backend here
     localStorage.setItem("avaturn_url", url);
     setStep("result");
+  };
+
+  const handleDownload = async () => {
+    const url = localStorage.getItem("avaturn_url");
+    if (!url) return;
+    
+    try {
+      // Create a temporary link element to trigger the download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-ai-avatar.glb";
+      a.target = "_blank"; // In case it opens instead of downloading
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Failed to download avatar", err);
+    }
   };
 
   const handleRetake = () => {
@@ -117,6 +135,17 @@ export default function HeroPage() {
                   Looks Good! Continue
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
+
+                <Button 
+                  variant="outline"
+                  size="lg" 
+                  className="rounded-full w-full h-14 text-lg font-medium border-white/10 hover:bg-white/5"
+                  onClick={handleDownload}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Скачать модель (.glb)
+                </Button>
+
                 <Button 
                   variant="ghost"
                   size="lg" 
