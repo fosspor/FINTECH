@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export type Mood = "idle" | "thinking" | "happy" | "celebrate" | "sad";
 
 interface AvatarState {
-  avatarUrl: string;
+  avatarUrl: string | null;
   mood: Mood;
   level: number;
   xp: number;
@@ -16,8 +16,8 @@ interface AvatarState {
 }
 
 export const useAvatarStore = create<AvatarState>((set) => ({
-  // The avatar already exists. We default to a pre-created URL.
-  avatarUrl: "/avatar/avatar.glb", 
+  // The avatar already exists, but initially null until generated/loaded
+  avatarUrl: null, 
   mood: "idle",
   level: 3,
   xp: 65,

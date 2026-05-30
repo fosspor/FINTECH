@@ -35,8 +35,9 @@ class AvatarErrorBoundary extends Component<{children: ReactNode}, {hasError: bo
 // -----------------------------------------------------------------
 // Avatar Animation Controller & GLTF Loader
 // -----------------------------------------------------------------
-function AvatarAnimationController({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
+function AvatarAnimationController({ url }: { url: string | null }) {
+  // If no URL is provided, don't attempt to load
+  const { scene } = useGLTF(url || "/avatar/avatar.glb");
   const mood = useAvatarStore((state) => state.mood);
   
   const groupRef = useRef<THREE.Group>(null);
@@ -109,6 +110,15 @@ function AvatarAnimationController({ url }: { url: string }) {
 // -----------------------------------------------------------------
 export function AvatarViewer() {
   const avatarUrl = useAvatarStore((state) => state.avatarUrl);
+
+  if (!avatarUrl) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm relative border border-dashed border-white/20 rounded-[32px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground text-sm font-medium">Waiting for avatar...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full relative">
