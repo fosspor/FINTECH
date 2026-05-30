@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Keyboard, MessageCircle, Mic, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FinbroMascot } from "@/components/finbro-mascot";
 import { LevelMascot } from "@/components/level-mascots";
@@ -15,6 +16,10 @@ const supportMascots = [
 ];
 
 export default function WelcomePage() {
+  useEffect(() => {
+    document.cookie = "finbro_seen_welcome=1; Path=/; SameSite=Lax";
+  }, []);
+
   return (
     <main className="flex-1 min-h-0 h-[100dvh] max-w-2xl mx-auto w-full bg-background relative overflow-hidden text-center">
       <div className="absolute inset-x-0 top-0 h-[58%] bg-[radial-gradient(circle_at_50%_0%,rgba(48,213,200,0.26),transparent_64%)] pointer-events-none" />
@@ -87,14 +92,14 @@ export default function WelcomePage() {
           </p>
 
           <div className="flex flex-col gap-3">
-            <Link href="/" className="block">
+            <Link href="/chat" className="block">
               <Button className="h-15 min-h-15 w-full rounded-2xl text-[17px] font-extrabold gap-3 shadow-lg shadow-primary/25">
                 <Mic className="h-5 w-5" />
                 Начать голосом
               </Button>
             </Link>
 
-            <Link href="/" className="block">
+            <Link href="/chat" className="block">
               <Button
                 variant="outline"
                 className="h-14 w-full rounded-2xl border-white/10 bg-white/5 text-[16px] font-bold backdrop-blur-sm hover:bg-white/10 gap-3"
