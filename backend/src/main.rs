@@ -1,8 +1,10 @@
 use axum::{routing::{get, post}, Router};
+use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use std::sync::Arc;
 
 mod auth;
 mod users;
@@ -12,6 +14,10 @@ mod ai;
 mod knowledge;
 mod financial_profile;
 mod consultations;
+
+pub struct AppState {
+    pub db: sqlx::PgPool,
+}
 
 #[tokio::main]
 async fn main() {
@@ -24,8 +30,17 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Database connection pool setup would go here
-    // let db_pool = sqlx::PgPool::connect(&std::env::var("DATABASE_URL").unwrap()).await.unwrap();
+    // Database connection pool setup
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/finbro".to_string());
+    
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&db_url)
+        .await
+        .expect("Failed to connect to Postgres");
+
+    let shared_state = Arc::new(AppState { db: pool });
 
     let app = Router::new()
         // Auth routes
@@ -45,6 +60,7 @@ async fn main() {
         .route("/consultations", get(consultations::routes::list_consultations))
         .route("/consultations", post(consultations::routes::create_consultation))
         
+        .with_state(shared_state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 

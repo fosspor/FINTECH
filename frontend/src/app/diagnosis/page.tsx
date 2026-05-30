@@ -1,11 +1,46 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Target, ArrowRight, TrendingUp } from "lucide-react";
+import { AlertCircle, Target, ArrowRight, TrendingUp, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+type DiagnosisData = {
+  main_problem: string;
+  main_risk: string;
+  first_recommendation: string;
+};
+
 export default function DiagnosisPage() {
+  const [diagnosis, setDiagnosis] = useState<DiagnosisData | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("finbro_diagnosis");
+    if (stored) {
+      try {
+        setDiagnosis(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to parse diagnosis", e);
+      }
+    } else {
+      // Mock fallback if user navigates directly
+      setDiagnosis({
+        main_problem: "Отсутствие финансовой подушки",
+        main_risk: "Жизнь от зарплаты до зарплаты",
+        first_recommendation: "Начать отслеживать ежедневные расходы в течение недели"
+      });
+    }
+  }, []);
+
+  if (!diagnosis) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-[100dvh] bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <main className="flex-1 flex flex-col min-h-0 h-[100dvh] max-w-2xl mx-auto w-full bg-background relative overflow-y-auto">
       {/* Ambient background glow */}
@@ -39,7 +74,7 @@ export default function DiagnosisPage() {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Сильная сторона</h3>
-            <p className="text-[19px] font-bold text-foreground">Стабильный доход</p>
+            <p className="text-[19px] font-bold text-foreground">Заинтересованность в улучшении</p>
           </div>
         </motion.div>
 
@@ -53,8 +88,8 @@ export default function DiagnosisPage() {
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Главный риск</h3>
-            <p className="text-[19px] font-bold text-foreground">Нет финансовой подушки</p>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Главная проблема / риск</h3>
+            <p className="text-[19px] font-bold text-foreground">{diagnosis.main_problem}<br/><span className="text-[15px] font-normal opacity-80 mt-1 block">{diagnosis.main_risk}</span></p>
           </div>
         </motion.div>
 
@@ -72,7 +107,7 @@ export default function DiagnosisPage() {
           </div>
           <div className="relative z-10">
             <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wider mb-1">Первая рекомендация</h3>
-            <p className="text-[19px] font-bold text-primary-foreground">Начать отслеживать ежедневные расходы</p>
+            <p className="text-[19px] font-bold text-primary-foreground">{diagnosis.first_recommendation}</p>
           </div>
         </motion.div>
 
