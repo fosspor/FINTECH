@@ -89,7 +89,8 @@ export default function PathPage() {
 
           {levels.map((level, index) => {
             const isEven = index % 2 === 0;
-            const Icon = level.icon;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const Icon = level.icon as any;
             const isCompleted = level.status === "completed";
             const isCurrent = level.status === "current";
             const isLocked = level.status === "locked";

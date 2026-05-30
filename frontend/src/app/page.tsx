@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Send, MessageSquare, Square, Loader2 } from "lucide-react";
+import { Mic, Send, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar } from "@/components/ui/avatar";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useRouter } from "next/navigation";
 
@@ -67,6 +67,7 @@ export default function Home() {
     if (audioBlob) {
       handleAudioSubmit(audioBlob);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioBlob]);
 
   const finishOnboarding = async (finalMessages: Message[]) => {
@@ -88,7 +89,7 @@ export default function Home() {
     router.push("/diagnosis");
   };
 
-  const proceedOnboarding = (userText: string) => {
+  const proceedOnboarding = (_userText: string) => {
     const nextStep = step + 1;
     setStep(nextStep);
     setIsTyping(true);
@@ -116,7 +117,7 @@ export default function Home() {
     }, 1200);
   };
 
-  const handleAudioSubmit = async (blob: Blob) => {
+  const handleAudioSubmit = async (_blob: Blob) => {
     // For MVP frontend we simulate transcription to keep the flow moving fast
     const tempId = Date.now().toString();
     const newMsg: Message = { id: tempId, role: "user", content: "🎤 Распознаю аудио...", isAudio: true };

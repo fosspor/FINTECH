@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Trophy, Flame, ChevronUp, ChevronDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar } from "@/components/ui/avatar";
 
 const LEADERBOARD = [
   { rank: 1, name: "Александр В.", score: 12500, streak: 45, trend: "up", avatar: "👨🏻‍💻" },
