@@ -172,7 +172,7 @@ export default function LevelDetailsPage() {
         if (!response.ok) throw new Error(`Complete task failed: ${response.status}`);
         const data = await response.json();
         nextStatus = data.task?.status ?? "completed";
-        earnedCrystals = data.crystals_awarded ?? task.crystals;
+        earnedCrystals = data.rewarded === false ? 0 : task.crystals;
       }
       if (typeof task.id !== "string" && rewardOverride != null) {
         earnedCrystals = Math.max(0, Math.floor(rewardOverride));
@@ -215,15 +215,13 @@ export default function LevelDetailsPage() {
           lesson.correctAnswer
         );
       } catch {}
-      // partial reward policy: for одиночный вопрос — 0% (легко изменить на 50% позже)
-      const partial = 0;
-      await completeTask(activeTask, partial);
-      setReward({ crystals: partial, title: activeTask.title });
+      setSubmitCooldown(false);
       return;
     }
 
     if (lesson.kind !== "quiz" && reflection.trim().length < 3) {
       setAnswerState("wrong");
+      setSubmitCooldown(false);
       return;
     }
 
@@ -550,23 +548,22 @@ function getTaskTypeLabel(type: string) {
 function augmentLevelWithExtraQuizzes(level: LevelDetails): LevelDetails {
   const tasks = Array.isArray(level.tasks) ? level.tasks : [];
   const quizCount = tasks.filter((t) => t.type === "quiz").length;
-  const extraCount = quizCount === 0 ? 1 : quizCount; // if none, add 1; otherwise duplicate
-  if (extraCount <= 0) return level;
+  if (quizCount > 0) return { ...level, tasks };
 
   const numericIds = tasks
     .map((t) => (typeof t.id === "number" ? (t.id as number) : Number.NaN))
     .filter((n) => Number.isFinite(n)) as number[];
   const nextId = (numericIds.length ? Math.max(...numericIds) : tasks.length) + 1;
 
-  const extras: TaskData[] = Array.from({ length: extraCount }).map((_, i) => ({
-    id: nextId + i,
-    title: `Мини‑квиз: ${String(level.title).trim()} #${i + 1}`,
+  const extra: TaskData = {
+    id: nextId,
+    title: `Мини‑квиз: ${String(level.title).trim()}`,
     type: "quiz",
     crystals: 30,
     status: "pending",
-  }));
+  };
 
-  return { ...level, tasks: [...tasks, ...extras] };
+  return { ...level, tasks: [...tasks, extra] };
 }
 
 type PracticeItem = {
@@ -650,7 +647,7 @@ function buildTaskLesson(task: TaskData, level: LevelDetails) {
       icon: Sparkles,
       badge: "Быстрое игровое действие",
       title: task.title,
-      body: "Мини-игра в FinBro — это короткое действие на внимательность. Найди одну привычку или трату, которую можно поймать до того, как деньги исчезнут.",
+      body: "Мини-игра в ФИНБРО — это короткое действие на внимательность. Найди одну привычку или трату, которую можно поймать до того, как деньги исчезнут.",
       prompt: "Напиши одну ловушку или привычку, которую заметил у себя.",
       answers: [],
       correctAnswer: "",

@@ -32,7 +32,7 @@ pub struct TtsResponse {
     path = "/tts/generate",
     tag = "tts",
     summary = "Generate speech",
-    description = "Generates voice audio for FinBro text using Yandex SpeechKit TTS. Returns a data URL with OGG Opus audio.",
+    description = "Generates voice audio for ФИНБРО text using Yandex SpeechKit TTS. Returns a data URL with OGG Opus audio.",
     request_body(
         content = TtsRequest,
         description = "Text and optional Yandex voice preset.",

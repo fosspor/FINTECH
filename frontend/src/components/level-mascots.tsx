@@ -7,7 +7,7 @@ import { FinbroMascot } from "@/components/finbro-mascot";
 import type { Mood } from "@/state/useAvatarStore";
 
 export type LevelMascotId =
-  | "finclip"
+  | "finbro"
   | "anti_impulse"
   | "budget_calc"
   | "piggy"
@@ -34,7 +34,7 @@ const sizeClass = {
 };
 
 const levelMascots: LevelMascotId[] = [
-  "finclip",
+  "finbro",
   "anti_impulse",
   "budget_calc",
   "piggy",
@@ -58,7 +58,7 @@ export function getLevelMascot(levelId?: number, title = ""): LevelMascotId {
   const matched = topicRules.find((rule) => rule.test.test(title));
   if (matched) return matched.mascot;
 
-  if (!levelId || Number.isNaN(levelId)) return "finclip";
+  if (!levelId || Number.isNaN(levelId)) return "finbro";
   return levelMascots[(levelId - 1) % levelMascots.length];
 }
 
@@ -75,7 +75,7 @@ export function LevelMascot({
 
   return (
     <div className={cn("relative flex items-center justify-center", sizeClass[size], locked && "grayscale opacity-55", className)}>
-      {resolved === "finclip" && <FinbroMascot mood={mood} size={size === "xl" ? "lg" : "md"} showShadow={false} />}
+      {resolved === "finbro" && <FinbroMascot mood={mood} size={size === "xl" ? "lg" : "md"} showShadow={false} />}
       {resolved === "anti_impulse" && <ShieldMascot mood={mood} />}
       {resolved === "budget_calc" && <CalculatorMascot mood={mood} />}
       {resolved === "piggy" && <PiggyMascot mood={mood} />}

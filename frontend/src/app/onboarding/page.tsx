@@ -13,16 +13,16 @@ type Slide = {
   title: string;
   text: string;
   icon: typeof MessageCircle;
-  mascot: LevelMascotId | "finclip";
+  mascot: LevelMascotId;
   accent: string;
 };
 
 const slides: Slide[] = [
   {
-    title: "Сначала FinClip тебя выслушает",
+    title: "Сначала ФИНБРО тебя выслушает",
     text: "Ты рассказываешь про доходы, расходы, долги и цель. Мы не начинаем с таблиц, а собираем картину через простой разговор.",
     icon: MessageCircle,
-    mascot: "finclip",
+    mascot: "finbro",
     accent: "from-[#30D5C8] to-[#37A7FF]",
   },
   {
@@ -41,7 +41,7 @@ const slides: Slide[] = [
   },
   {
     title: "Прогресс сохраняется",
-    text: "За задания ты получаешь кристаллы, серию дней и новых помощников. FinClip будет вести тебя дальше.",
+    text: "За задания ты получаешь кристаллы, серию дней и новых помощников. ФИНБРО будет вести тебя дальше.",
     icon: Sparkles,
     mascot: "crystal_bro",
     accent: "from-[#37A7FF] to-[#7C5CFF]",
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                 <p className="text-lg font-black">{index + 1}/{slides.length}</p>
               </div>
 
-              {slide.mascot === "finclip" ? (
+              {slide.mascot === "finbro" ? (
                 <FinbroMascot mood="celebrate" size="xl" />
               ) : (
                 <LevelMascot mascot={slide.mascot} mood="happy" size="xl" />

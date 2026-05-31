@@ -5,6 +5,7 @@ const AUTH_CHANGE_EVENT = "finbro_auth_change";
 type AuthState = {
   email: string;
   password: string;
+  name: string;
   token: string;
   refresh_token: string;
   user_id: string;
@@ -80,10 +81,11 @@ function authHeaders(auth?: AuthState) {
   return headers;
 }
 
-async function registerAnonymousUser(): Promise<AuthState> {
+async function registerAnonymousUser(name = "Гость"): Promise<AuthState> {
   const id = crypto.randomUUID();
   const email = `guest-${id}@finbro.local`;
   const password = `guest-${id}`;
+  const displayName = name.trim() || "Гость";
 
   const response = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
@@ -91,7 +93,7 @@ async function registerAnonymousUser(): Promise<AuthState> {
     body: JSON.stringify({
       email,
       password,
-      name: "FinBro User",
+      name: displayName,
     }),
   });
 
@@ -103,6 +105,7 @@ async function registerAnonymousUser(): Promise<AuthState> {
   const auth = {
     email,
     password,
+    name: displayName,
     token: data.token,
     refresh_token: data.refresh_token,
     user_id: data.user_id,
@@ -160,6 +163,7 @@ export async function registerUser(payload: {
   const auth = {
     email: payload.email,
     password: payload.password,
+    name: payload.name,
     token: data.token,
     refresh_token: data.refresh_token,
     user_id: data.user_id,
@@ -187,6 +191,7 @@ export async function loginUser(payload: {
   const auth = {
     email: payload.email,
     password: payload.password,
+    name: payload.email.split("@")[0] || "Пользователь",
     token: data.token,
     refresh_token: data.refresh_token,
     user_id: data.user_id,
@@ -214,6 +219,17 @@ export async function ensureAuth(): Promise<AuthState> {
   return readAuth() ?? registerAnonymousUser();
 }
 
+export async function ensureGuestAuth(name: string): Promise<AuthState> {
+  const auth = readAuth();
+  if (auth) {
+    const next = { ...auth, name: name.trim() || auth.name || "Гость" };
+    writeAuth(next);
+    return next;
+  }
+
+  return registerAnonymousUser(name);
+}
+
 export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const auth = await ensureAuth();
   const headers = new Headers(init.headers);
@@ -224,7 +240,12 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   if (response.status !== 401) return response;
 
   const refreshed = await refreshAuth(auth);
-  if (!refreshed) return response;
+  if (!refreshed) {
+    clearAuth();
+    const nextAuth = await registerAnonymousUser();
+    headers.set("Authorization", `Bearer ${nextAuth.token}`);
+    return fetch(input, { ...init, headers });
+  }
 
   headers.set("Authorization", `Bearer ${refreshed.token}`);
   return fetch(input, { ...init, headers });

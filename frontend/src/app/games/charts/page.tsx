@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -110,7 +110,7 @@ export default function ChartsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-xl">Графики из диалога</h2>
-            <p className="text-sm text-muted-foreground mt-1">Данные зависят от твоего чата с FinBro</p>
+            <p className="text-sm text-muted-foreground mt-1">Данные зависят от твоего чата с ФИНБРО</p>
           </div>
           <Link href="/games">
             <Button size="sm" className="rounded-full" variant="secondary"><ArrowLeft className="w-4 h-4 mr-1" /> Игры</Button>
@@ -141,13 +141,13 @@ export default function ChartsPage() {
             <div className="flex-1">
               <BarChart data={[
                 { label: "Пользователь", value: stats.userMsgs, color: "#22c55e" },
-                { label: "FinBro", value: stats.botMsgs, color: "#3b82f6" },
+                { label: "ФИНБРО", value: stats.botMsgs, color: "#3b82f6" },
                 { label: "Ср. длина", value: stats.avgLen, color: "#8b5cf6" },
               ]} />
             </div>
             <div className="text-sm font-medium text-muted-foreground min-w-[160px]">
               <div><span className="font-bold text-foreground">Пользователь:</span> {stats.userMsgs}</div>
-              <div><span className="font-bold text-foreground">FinBro:</span> {stats.botMsgs}</div>
+              <div><span className="font-bold text-foreground">ФИНБРО:</span> {stats.botMsgs}</div>
               <div><span className="font-bold text-foreground">Ср. длина:</span> {stats.avgLen} симв.</div>
             </div>
           </div>

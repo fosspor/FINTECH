@@ -1,10 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Target, ArrowRight, TrendingUp, Loader2, Wallet, ReceiptText, CreditCard, HelpCircle } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  CreditCard,
+  HelpCircle,
+  Loader2,
+  ReceiptText,
+  ShieldAlert,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type DiagnosisData = {
   main_problem: string;
@@ -32,17 +46,23 @@ type ProfileData = {
 const riskCopy = {
   green: {
     title: "Зелёная зона",
-    text: "База выглядит спокойно, можно усиливать привычки и цели.",
+    label: "Стабильно",
+    text: "База выглядит спокойно. Можно усиливать привычки, цель и регулярность.",
+    className: "from-success/30 via-success/10 to-transparent border-success/25 text-success",
   },
   yellow: {
     title: "Жёлтая зона",
-    text: "Твои финансы требуют внимания, но ситуация под контролем.",
+    label: "Нужен фокус",
+    text: "Финансы требуют внимания, но ситуацию можно быстро взять под контроль.",
+    className: "from-warning/30 via-warning/10 to-transparent border-warning/25 text-warning",
   },
   red: {
     title: "Красная зона",
-    text: "Сначала снизим давление долгов и обязательных платежей.",
+    label: "Сначала разгрузка",
+    text: "Первым шагом снижаем давление долгов, обязательных платежей и хаоса в расходах.",
+    className: "from-destructive/30 via-destructive/10 to-transparent border-destructive/25 text-destructive",
   },
-};
+} as const;
 
 const formatMoney = (value: number | null) =>
   typeof value === "number" ? `${new Intl.NumberFormat("ru-RU").format(value)} ₽` : "не указано";
@@ -78,197 +98,204 @@ export default function DiagnosisPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("finbro_diagnosis");
+    const storedDiagnosis = localStorage.getItem("finbro_diagnosis");
     const storedProfile = localStorage.getItem("finbro_profile");
-    if (stored) {
-      try {
-        setDiagnosis(normalizeDiagnosis(JSON.parse(stored)));
-      } catch (e) {
-        console.error("Failed to parse diagnosis", e);
-        localStorage.removeItem("finbro_diagnosis");
-        setDiagnosis(normalizeDiagnosis(null));
-      }
-    } else {
-      // Mock fallback if user navigates directly
-      setDiagnosis({
-        main_problem: "Отсутствие финансовой подушки",
-        main_risk: "Жизнь от зарплаты до зарплаты",
-        first_recommendation: "Начать отслеживать ежедневные расходы в течение недели"
-      });
+
+    try {
+      setDiagnosis(normalizeDiagnosis(storedDiagnosis ? JSON.parse(storedDiagnosis) : null));
+    } catch (error) {
+      console.error("Failed to parse diagnosis", error);
+      localStorage.removeItem("finbro_diagnosis");
+      setDiagnosis(normalizeDiagnosis(null));
     }
 
     if (storedProfile) {
       try {
         setProfile(normalizeProfile(JSON.parse(storedProfile)));
-      } catch (e) {
-        console.error("Failed to parse profile", e);
+      } catch (error) {
+        console.error("Failed to parse profile", error);
         localStorage.removeItem("finbro_profile");
       }
     }
   }, []);
 
+  const risk = riskCopy[profile?.risk_zone ?? "yellow"];
+  const filledFields = useMemo(() => {
+    if (!profile) return 0;
+    return [
+      profile.monthly_income,
+      profile.mandatory_expenses,
+      profile.free_money,
+      profile.main_goal,
+      profile.savings_months,
+    ].filter((value) => value !== null && value !== "").length;
+  }, [profile]);
+
   if (!diagnosis) {
     return (
-      <div className="flex-1 flex items-center justify-center h-[100dvh] bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex h-[100dvh] flex-1 items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  const risk = riskCopy[profile?.risk_zone ?? "yellow"];
-
   return (
-    <main className="flex-1 flex flex-col min-h-0 h-[100dvh] max-w-2xl mx-auto w-full bg-background relative overflow-y-auto">
-      {/* Ambient background glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-96 bg-warning/15 blur-[120px] rounded-full pointer-events-none" />
+    <main className="relative mx-auto flex h-[100dvh] w-full max-w-2xl flex-1 flex-col overflow-y-auto bg-background">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(124,92,255,0.22),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-44 h-72 bg-[radial-gradient(circle_at_20%_20%,rgba(48,213,200,0.18),transparent_68%)]" />
 
-      <div className="p-6 pt-16 flex flex-col gap-5 relative z-10">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, type: "spring" }}
-          className="flex flex-col items-center text-center mb-6"
+      <section className="relative z-10 flex flex-col gap-5 px-5 pb-28 pt-7">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn("overflow-hidden rounded-[2rem] border bg-gradient-to-br p-5 shadow-2xl", risk.className)}
         >
-          <div className="w-24 h-24 rounded-[2rem] bg-warning/20 border border-warning/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
-            <div className="w-14 h-14 rounded-2xl bg-warning flex items-center justify-center">
-              <span className="text-warning-foreground font-black text-3xl">!</span>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-foreground">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Финансовая аналитика
+            </div>
+            <span className="rounded-full bg-background/70 px-3 py-1 text-xs font-black">{risk.label}</span>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-white/10 bg-background/70 shadow-xl">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black leading-none tracking-tight">{risk.title}</h1>
+              <p className="mt-3 text-base font-semibold leading-relaxed text-muted-foreground">{risk.text}</p>
             </div>
           </div>
-          <h1 className="text-4xl font-extrabold mb-3 tracking-tight">{risk.title}</h1>
-          <p className="text-muted-foreground text-lg max-w-[280px]">{risk.text}</p>
         </motion.div>
 
-        {profile && (
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard icon={Wallet} label="Доход" value={formatMoney(profile?.monthly_income ?? null)} tone="success" />
+          <MetricCard icon={ReceiptText} label="Обязательные траты" value={formatMoney(profile?.mandatory_expenses ?? null)} tone="warning" />
+          <MetricCard icon={TrendingUp} label="Свободные деньги" value={formatMoney(profile?.free_money ?? null)} tone="primary" />
+          <MetricCard icon={CreditCard} label="Долги" value={profile?.has_credit ? "есть" : "не указаны"} tone="destructive" />
+        </div>
+
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-xl"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black">Портрет денег</h2>
+              <p className="text-sm text-muted-foreground">Что AI понял из разговора</p>
+            </div>
+            <div className="rounded-2xl bg-primary/10 px-3 py-2 text-center">
+              <p className="text-xs font-bold text-primary">данных</p>
+              <p className="text-lg font-black">{filledFields}/5</p>
+            </div>
+          </div>
+
+          <Insight icon={AlertCircle} title="Главная проблема" text={diagnosis.main_problem} />
+          <Insight icon={ShieldAlert} title="Главный риск" text={diagnosis.main_risk} />
+          <Insight icon={Target} title="Первый шаг" text={diagnosis.first_recommendation} highlight />
+        </motion.section>
+
+        {(profile?.main_goal || profile?.spending_leaks.length || profile?.missing_fields.length) && (
           <motion.section
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, type: "spring" }}
-            className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-lg"
+            transition={{ delay: 0.18 }}
+            className="rounded-[2rem] border border-white/10 bg-background/70 p-5"
           >
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-black">Профиль FinClip</h2>
-                <p className="text-sm text-muted-foreground">Что уже понятно из разговора</p>
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                {profile.risk_zone}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
-                <Wallet className="w-5 h-5 text-success mb-2" />
-                <p className="text-xs text-muted-foreground">Доход</p>
-                <p className="text-base font-bold">{formatMoney(profile.monthly_income)}</p>
-              </div>
-              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
-                <ReceiptText className="w-5 h-5 text-warning mb-2" />
-                <p className="text-xs text-muted-foreground">Обязательные траты</p>
-                <p className="text-base font-bold">{formatMoney(profile.mandatory_expenses)}</p>
-              </div>
-              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
-                <TrendingUp className="w-5 h-5 text-primary mb-2" />
-                <p className="text-xs text-muted-foreground">Свободные деньги</p>
-                <p className="text-base font-bold">{formatMoney(profile.free_money)}</p>
-              </div>
-              <div className="rounded-2xl bg-background/50 border border-white/10 p-3 min-h-[92px]">
-                <CreditCard className="w-5 h-5 text-destructive mb-2" />
-                <p className="text-xs text-muted-foreground">Долги</p>
-                <p className="text-base font-bold">{profile.has_credit ? "есть" : "не указаны"}</p>
-              </div>
-            </div>
-
-            {(profile.main_goal || profile.spending_leaks.length > 0 || profile.missing_fields.length > 0) && (
-              <div className="mt-4 space-y-3 text-sm">
-                {profile.main_goal && (
+            <h2 className="mb-4 text-xl font-black">Детали профиля</h2>
+            <div className="space-y-3">
+              {profile?.main_goal && <ChipLine title="Цель" value={profile.main_goal} />}
+              {!!profile?.spending_leaks.length && <ChipLine title="Утечки" value={profile.spending_leaks.join(", ")} />}
+              {!!profile?.missing_fields.length && (
+                <div className="flex gap-3 rounded-2xl border border-warning/20 bg-warning/10 p-3 text-sm">
+                  <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                   <p>
-                    <span className="text-muted-foreground">Цель:</span>{" "}
-                    <span className="font-semibold">{profile.main_goal}</span>
+                    <span className="font-black text-warning">Уточнить:</span> {profile.missing_fields.join(", ")}
                   </p>
-                )}
-                {profile.spending_leaks.length > 0 && (
-                  <p>
-                    <span className="text-muted-foreground">Утечки:</span>{" "}
-                    <span className="font-semibold">{profile.spending_leaks.join(", ")}</span>
-                  </p>
-                )}
-                {profile.missing_fields.length > 0 && (
-                  <div className="flex items-start gap-2 rounded-2xl bg-warning/10 border border-warning/20 p-3">
-                    <HelpCircle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
-                    <p>
-                      <span className="text-warning font-semibold">Нужно уточнить:</span>{" "}
-                      {profile.missing_fields.join(", ")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </motion.section>
         )}
 
-        {/* Glass Cards */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, type: "spring" }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex items-start gap-4 shadow-lg"
-        >
-          <div className="p-3 bg-success/20 border border-success/30 rounded-2xl text-success shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Сильная сторона</h3>
-            <p className="text-[19px] font-bold text-foreground">Заинтересованность в улучшении</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3, type: "spring" }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 flex items-start gap-4 shadow-lg"
-        >
-          <div className="p-3 bg-destructive/20 border border-destructive/30 rounded-2xl text-destructive shrink-0">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Главная проблема / риск</h3>
-            <p className="text-[19px] font-bold text-foreground">{diagnosis.main_problem}<br/><span className="text-[15px] font-normal opacity-80 mt-1 block">{diagnosis.main_risk}</span></p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4, type: "spring" }}
-          className="bg-primary/10 backdrop-blur-xl border border-primary/20 rounded-3xl p-5 flex items-start gap-4 shadow-lg mt-2 relative overflow-hidden"
-        >
-          {/* Subtle shine effect inside the card */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/0 via-white/5 to-transparent pointer-events-none" />
-          
-          <div className="p-3 bg-primary/20 border border-primary/30 rounded-2xl text-primary shrink-0 relative z-10">
-            <Target className="w-6 h-6" />
-          </div>
-          <div className="relative z-10">
-            <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wider mb-1">Первая рекомендация</h3>
-            <p className="text-[19px] font-bold text-primary-foreground">{diagnosis.first_recommendation}</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="mt-8 mb-6"
-        >
-          <Link href="/path" className="w-full block">
-            <Button className="w-full h-16 rounded-2xl text-lg font-bold shadow-[0_10px_30px_rgba(124,92,255,0.3)] gap-2 hover:scale-[1.02] transition-transform">
-              ✨ Построить мой путь
-              <ArrowRight className="w-5 h-5 ml-1" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <Link href="/path" className="block">
+            <Button className="h-16 w-full rounded-3xl text-lg font-black shadow-xl shadow-primary/20">
+              Открыть мой путь
+              <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
         </motion.div>
-      </div>
+      </section>
     </main>
+  );
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  value: string;
+  tone: "success" | "warning" | "primary" | "destructive";
+}) {
+  const toneClass = {
+    success: "text-success bg-success/10 border-success/20",
+    warning: "text-warning bg-warning/10 border-warning/20",
+    primary: "text-primary bg-primary/10 border-primary/20",
+    destructive: "text-destructive bg-destructive/10 border-destructive/20",
+  }[tone];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-3xl border border-white/10 bg-white/5 p-4"
+    >
+      <div className={cn("mb-3 flex h-10 w-10 items-center justify-center rounded-2xl border", toneClass)}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="text-xs font-bold text-muted-foreground">{label}</p>
+      <p className="mt-1 text-base font-black">{value}</p>
+    </motion.div>
+  );
+}
+
+function Insight({
+  icon: Icon,
+  title,
+  text,
+  highlight = false,
+}: {
+  icon: typeof AlertCircle;
+  title: string;
+  text: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={cn("mb-3 flex gap-3 rounded-2xl border p-4 last:mb-0", highlight ? "border-primary/25 bg-primary/10" : "border-white/10 bg-background/60")}>
+      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl", highlight ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground")}>
+        {highlight ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+      </div>
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
+        <p className="mt-1 text-base font-bold leading-relaxed">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChipLine({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
+      <p className="mt-1 text-sm font-bold">{value}</p>
+    </div>
   );
 }

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FinbroMascot } from "@/components/finbro-mascot";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
-import { apiUrl, authFetch, ensureAuth } from "@/lib/api";
+import { apiUrl, authFetch, ensureAuth, readAuth } from "@/lib/api";
 
 type Message = {
   id: string;
@@ -38,7 +38,6 @@ type ProfilePayload = {
   missing_fields?: unknown;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const JSON_API_HEADERS = {
   "Content-Type": "application/json",
   "ngrok-skip-browser-warning": "true",
@@ -47,15 +46,14 @@ const NGROK_API_HEADERS = {
   "ngrok-skip-browser-warning": "true",
 };
 const CHAT_HISTORY_STORAGE_KEY = "finbro_chat_messages";
-const API_WAITING_MESSAGE = "ожидается api";
 const AI_FALLBACK_MESSAGE = "Я готов собрать профиль. Напиши доход, обязательные расходы, долги и главную цель.";
 const VOICE_LOADING_MESSAGE = "Распознаю голос...";
 const VOICE_RECOGNITION_ERROR_MESSAGE = "Не получилось распознать, попробуй ещё раз.";
 const INITIAL_CHAT_PROMPT =
-  "Начни диалог с пользователем: коротко представься как FinClip и задай первый вопрос для финансового профиля.";
+  "Начни диалог с пользователем: коротко представься как ФИНБРО, обратись к пользователю по имени и задай первый вопрос для финансового профиля.";
 const LEGACY_PLACEHOLDER_PATTERNS = [
-  "Привет! Я FinClip",
-  "Я подключен как FinBro",
+  "Привет! Я ФИНБРО",
+  "Я подключен как ФИНБРО",
   "Ð¯ Ð¿Ð¾Ð´ÐºÐ»Ñ",
   "РЇ РїРѕРґРєР»",
 ];
@@ -137,7 +135,7 @@ export default function Home() {
         }
       }
     } catch (error) {
-      console.error("Failed to restore FinClip chat history", error);
+      console.error("Failed to restore ФИНБРО chat history", error);
     } finally {
       setHasLoadedMessages(true);
     }
@@ -153,7 +151,7 @@ export default function Home() {
           setMessages(sanitizeSavedMessages(parsedMessages));
         }
       } catch (error) {
-        console.error("Failed to sync FinClip chat history", error);
+        console.error("Failed to sync ФИНБРО chat history", error);
       }
     };
 
@@ -182,18 +180,19 @@ export default function Home() {
 
   const getHistory = (history: Message[]) =>
     history
-      .map((message) => `${message.role === "assistant" ? "FinBro" : "Пользователь"}: ${message.content}`)
+      .map((message) => `${message.role === "assistant" ? "ФИНБРО" : "Пользователь"}: ${message.content}`)
       .join("\n");
 
   const requestInitialMessage = async () => {
     setIsTyping(true);
 
     try {
+      const userName = readAuth()?.name?.trim() || "друг";
       const response = await authFetch(apiUrl("/ai/chat"), {
         method: "POST",
         headers: JSON_API_HEADERS,
         body: JSON.stringify({
-          message: INITIAL_CHAT_PROMPT,
+          message: `${INITIAL_CHAT_PROMPT}\nИмя пользователя: ${userName}.`,
           context: "",
         }),
       });
@@ -208,7 +207,7 @@ export default function Home() {
         },
       ]);
     } catch (error) {
-      console.error("Failed to get initial FinClip message", error);
+      console.error("Failed to get initial ФИНБРО message", error);
       setMessages([
         {
           id: crypto.randomUUID(),
@@ -221,7 +220,7 @@ export default function Home() {
     }
   };
 
-  const askFinbro = async (nextMessages: Message[]) => {
+  const askФИНБРО = async (nextMessages: Message[]) => {
     const userMessage = nextMessages[nextMessages.length - 1];
     setIsTyping(true);
 
@@ -246,7 +245,7 @@ export default function Home() {
         },
       ]);
     } catch (error) {
-      console.error("Failed to chat with FinBro", error);
+      console.error("Failed to chat with ФИНБРО", error);
       setMessages((prev) => [
         ...prev,
         {
@@ -272,7 +271,7 @@ export default function Home() {
 
     setMessages(nextMessages);
     setInput("");
-    await askFinbro(nextMessages);
+    await askФИНБРО(nextMessages);
   };
 
   const handleAudioSubmit = async () => {
@@ -322,7 +321,7 @@ export default function Home() {
       setMessages(nextMessages);
       setIsTyping(false);
 
-      await askFinbro(nextMessages);
+      await askФИНБРО(nextMessages);
     } catch (error) {
       console.error("Failed to transcribe audio", error);
       setMessages((prev) =>
@@ -400,7 +399,7 @@ export default function Home() {
               <FinbroMascot mood={isTyping ? "thinking" : "idle"} size="sm" showShadow={false} />
             </div>
             <div className="min-w-0">
-              <h2 className="font-semibold text-lg leading-tight">FinClip</h2>
+              <h2 className="font-semibold text-lg leading-tight">ФИНБРО</h2>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 Живой разговор
@@ -495,7 +494,7 @@ export default function Home() {
               id="chat-input"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder={isRecording ? "Слушаю..." : "Напиши FinClip..."}
+              placeholder={isRecording ? "Слушаю..." : "Напиши ФИНБРО..."}
               disabled={isRecording || isTyping || isBuildingPath}
               className="flex-1 border-0 bg-transparent focus-visible:ring-0 px-2 text-[17px] h-12 disabled:opacity-50"
               autoComplete="off"

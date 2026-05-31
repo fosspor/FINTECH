@@ -112,7 +112,7 @@ export default function HeroChartsPage() {
             <BarChart
               data={[
                 { label: "Пользователь", value: stats.userMsgs, color: "#22c55e" },
-                { label: "FinBro", value: stats.botMsgs, color: "#3b82f6" },
+                { label: "ФИНБРО", value: stats.botMsgs, color: "#3b82f6" },
                 { label: "Ср. длина", value: stats.avgLen, color: "#8b5cf6" },
               ]}
             />
@@ -136,7 +136,7 @@ export default function HeroChartsPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">FinBro</label>
+                  <label className="text-xs text-muted-foreground">ФИНБРО</label>
                   <input
                     type="number"
                     min={0}

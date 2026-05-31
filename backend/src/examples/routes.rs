@@ -61,7 +61,7 @@ pub struct ItemPath {
     path = "/examples/items",
     tag = "examples",
     summary = "List example items",
-    description = "Returns all example items from Postgres. This CRUD group shows the recommended documentation style for new FinBro REST resources.",
+    description = "Returns all example items from Postgres. This CRUD group shows the recommended documentation style for new ФИНБРО REST resources.",
     responses(
         (status = 200, description = "Items returned successfully.", body = [ExampleItem],
             example = json!([{

@@ -1,74 +1,134 @@
-# FinBro - AI-наставник финансовых решений
+# ФИНБРО - AI-наставник финансовых решений
 
-## О проекте
-FinBro — персональный AI-наставник, помогающий людям принимать правильные финансовые решения и постепенно формировать здоровые финансовые привычки через диалоговый интерфейс.
+ФИНБРО — персональный AI-наставник, который помогает пользователю разобраться с доходами, расходами, долгами, целями и привычками через короткий диалог, диагностику и персональный путь обучения.
 
-Это не банковское приложение, не трекер расходов и не сложный аналитический инструмент. Это компаньон, который слушает вас, анализирует ситуацию и дает индивидуальные советы.
+## Что входит в релиз
 
-### Стек технологий
-* **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion
-* **Backend**: Rust, Axum, Tokio, SQLx
-* **База данных**: PostgreSQL
-* **AI/Voice**: Qwen (LLM), Whisper (STT), Yandex SpeechKit/GigaChat (TTS)
-* **Инфраструктура**: Docker, Docker Compose
+- Регистрация, вход, JWT и refresh-токены.
+- Диалог с AI-наставником ФИНБРО.
+- Финансовая диагностика и сохранение профиля.
+- Персональный путь, уровни, задания, квизы и начисление кристаллов.
+- Онбординг, welcome/auth/chat/diagnosis/path/level/hero/games экраны.
+- Swagger/OpenAPI-документация backend API.
+- Docker Compose стек: frontend, backend, PostgreSQL.
 
-## Структура проекта
+## Стек
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion.
+- **Backend**: Rust, Axum, Tokio, SQLx, Utoipa Swagger.
+- **Database**: PostgreSQL 15.
+- **AI/Voice**: YandexGPT/OpenAI-compatible fallback, Yandex SpeechKit TTS/STT endpoints.
+- **Infrastructure**: Docker, Docker Compose.
+
+## Структура
+
+```text
+FINTECH-main/
+├── backend/              # Rust/Axum API, migrations, Dockerfile
+├── frontend/             # Next.js приложение, UI и public assets
+├── docker-compose.yml    # Полный стек: frontend + backend + db
+├── README.md             # Документация запуска
+└── ROADMAP.md            # План развития
 ```
-FINTECH/
-├── frontend/          # Next.js 15 приложение (UI чата, мобильный интерфейс)
-├── backend/           # Rust/Axum API сервисы
-└── docker-compose.yml # Конфигурация для запуска всей системы
+
+## Быстрый запуск
+
+Требуется установленный Docker Desktop.
+
+```bash
+docker compose up -d --build
 ```
 
-## Требования для запуска
-* Docker и Docker Compose
-* Node.js 20+ (для локальной разработки frontend)
-* Rust (cargo) (для локальной разработки backend)
+После запуска:
 
-## Быстрый запуск с Docker (Ожидается)
-*В процессе реализации*
+- Frontend: http://127.0.0.1:3100
+- Backend Swagger UI: http://127.0.0.1:8000/swagger-ui/
+- OpenAPI JSON: http://127.0.0.1:8000/api-docs/openapi.json
+- PostgreSQL: `127.0.0.1:5433`, database `finbro`, user `postgres`, password `postgres`
 
-## Локальная разработка
+Проверка статуса:
 
-### Frontend
+```bash
+docker compose ps
+docker compose logs -f backend
+```
+
+Остановка:
+
+```bash
+docker compose down
+```
+
+Остановка с удалением данных БД:
+
+```bash
+docker compose down -v
+```
+
+## Переменные окружения
+
+Файл `backend/.env` используется локально и не должен попадать в Git. Минимальный пример:
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/finbro
+JWT_SECRET=change_me
+YANDEX_API_KEY=your_yandex_api_key
+YANDEX_FOLDER_ID=your_yandex_folder_id
+YANDEXGPT_MODEL=yandexgpt-5-pro/latest
+YANDEX_SPEECHKIT_KEY=your_yandex_speechkit_key
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+```
+
+В Docker Compose backend получает `DATABASE_URL=postgres://postgres:postgres@db:5432/finbro`, поэтому локальный `DATABASE_URL` из `.env` не мешает контейнерному запуску.
+
+## Локальная разработка без Docker
+
+Frontend:
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Откройте [http://localhost:3000](http://localhost:3000)
 
-### Backend
+Backend:
+
 ```bash
 cd backend
 cargo run
 ```
-API будет доступно на `http://localhost:8000`
 
-## Архитектура Backend
-Модульная структура, включающая:
-* `auth` - аутентификация и JWT
-* `users` - управление пользователями
-* `voice` - распознавание речи (STT через Whisper)
-* `tts` - генерация речи
-* `ai` - взаимодействие с Qwen (диагностика, диалог)
-* `knowledge` - модуль локальной базы знаний и подготовки к RAG
-* `financial_profile` - профили пользователей и история
-* `consultations` - история общения и сессий
+Для локального backend нужен PostgreSQL на `localhost:5432` или собственный `DATABASE_URL`.
 
-## Основные API Endpoints
-* `POST /auth/register` - Регистрация
-* `POST /auth/login` - Авторизация
-* `POST /voice/transcribe` - Аудио в текст
-* `POST /ai/chat` - Отправка сообщения AI наставнику
-* `POST /ai/diagnose` - Анализ финансового профиля
-* `GET /profile` - Получение профиля
-* `GET /consultations` - Список консультаций
-* `POST /consultations` - Новая консультация
-* `POST /tts/generate` - Текст в аудио
+## Основные API
 
-## Дизайн
-* Mobile-first
-* Тёмная тема
-* Минимализм и крупная типографика
-* Разговорный UI с акцентом на сообщения ИИ
+- `POST /auth/register` - регистрация пользователя.
+- `POST /auth/login` - вход и выдача токенов.
+- `POST /auth/refresh` - обновление токенов.
+- `POST /auth/logout` - выход и отзыв refresh-токена.
+- `POST /ai/chat` - сообщение ФИНБРО.
+- `POST /ai/diagnose` - диагностика и генерация персонального пути.
+- `GET /users/me` - текущий пользователь, валюта, streak и герой.
+- `GET /path` - активный персональный путь.
+- `GET /levels/{id}` - уровень с заданиями.
+- `POST /levels/{id}/quiz` - генерация квиза.
+- `POST /tasks/{id}/complete` - завершение задания.
+- `POST /tts/generate` - генерация аудио.
+- `POST /voice/transcribe` - распознавание аудио.
+
+Полный список доступен в Swagger UI.
+
+## Проверки перед релизом
+
+```bash
+cd frontend && npm run lint && npm run build
+cd backend && cargo check && cargo build
+docker compose up -d --build
+```
+
+## Важные замечания
+
+- Не коммитить `backend/.env` и реальные API-ключи.
+- Не изменять уже примененные SQL-миграции: добавлять новую миграцию с новым timestamp.
+- PostgreSQL данные хранятся в Docker volume `postgres_data`.

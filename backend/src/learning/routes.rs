@@ -12,7 +12,7 @@ use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
 use crate::{
-    auth::routes::{internal_error, user_id_from_headers},
+    auth::routes::{create_default_learning_path, internal_error, user_id_from_headers},
     docs::ErrorResponse,
     AppState,
 };
@@ -315,21 +315,38 @@ async fn load_active_path(
     .map_err(|err| {
         tracing::error!("Failed to fetch active path: {err}");
         internal_error()
-    })?
-    .ok_or_else(|| {
-        (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse::new("not_found", "No active learning path found")),
-        )
     })?;
 
-    let rows = sqlx::query_as::<_, (Uuid, String, Option<String>, String, i32, Uuid, String, Option<String>, String, i32, String)>(
+    let path = match path {
+        Some(path) => path,
+        None => {
+            create_default_learning_path(&state.db, user_id).await?;
+            sqlx::query_as::<_, (Uuid, String, Option<String>)>(
+                r#"
+                SELECT id, title, description
+                FROM financial_paths
+                WHERE user_id = $1 AND status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 1
+                "#,
+            )
+            .bind(user_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to fetch created default path: {err}");
+                internal_error()
+            })?
+        }
+    };
+
+    let rows = sqlx::query_as::<_, (Uuid, String, Option<String>, String, i32, Option<Uuid>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<String>)>(
         r#"
         SELECT l.id, l.title, l.description, COALESCE(l.icon_name, 'Sprout') AS icon_name, l.order_index,
                t.id, t.title, t.description, t.task_type, t.reward_crystals,
                COALESCE(ut.status, 'pending') AS task_status
         FROM levels l
-        JOIN tasks t ON t.level_id = l.id
+        LEFT JOIN tasks t ON t.level_id = l.id
         LEFT JOIN user_tasks ut ON ut.task_id = t.id AND ut.user_id = $2
         WHERE l.path_id = $1
         ORDER BY l.order_index, t.order_index
@@ -359,14 +376,16 @@ async fn load_active_path(
         }
 
         let level = levels.last_mut().expect("level inserted before task");
-        level.tasks.push(LearningTask {
-            id: row.5,
-            title: row.6,
-            description: row.7,
-            r#type: row.8,
-            crystals: row.9,
-            status: row.10,
-        });
+        if let (Some(id), Some(title), Some(task_type), Some(crystals)) = (row.5, row.6, row.8, row.9) {
+            level.tasks.push(LearningTask {
+                id,
+                title,
+                description: row.7,
+                r#type: task_type,
+                crystals,
+                status: row.10.unwrap_or_else(|| "pending".to_string()),
+            });
+        }
     }
 
     apply_level_statuses(&mut levels);
@@ -468,7 +487,7 @@ pub async fn generate_quiz(
 ) -> Result<Json<GenerateQuizResponse>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = user_id_from_headers(&headers)?;
 
-    let (order_index, title, description) = sqlx::query_as::<_, (i32, String, Option<String>)>(
+    let (_order_index, title, description) = sqlx::query_as::<_, (i32, String, Option<String>)>(
         r#"
         SELECT l.order_index, l.title, l.description
         FROM levels l

@@ -155,7 +155,7 @@ pub struct DiagnoseResponse {
     post,
     path = "/ai/chat",
     tag = "ai",
-    summary = "Chat with FinBro",
+    summary = "Chat with ФИНБРО",
     description = "Sends a user message and optional conversation context to the AI mentor. The answer is short, friendly and focused on collecting financial profile data.",
     request_body(
         content = ChatRequestPayload,
@@ -166,7 +166,7 @@ pub struct DiagnoseResponse {
         })
     ),
     responses(
-        (status = 200, description = "FinBro response returned successfully.", body = ChatResponse,
+        (status = 200, description = "ФИНБРО response returned successfully.", body = ChatResponse,
             example = json!({
                 "response": "Понял. Давай уточним кредитку: примерный остаток и минимальный платёж?"
             })
@@ -192,9 +192,9 @@ pub async fn chat(
         ));
     }
 
-    let system_prompt = r#"Ты FinBro — главный маскот-скрепка и персональный AI-наставник в Duolingo-like приложении про финансовые привычки.
+    let system_prompt = r#"Ты ФИНБРО — главный маскот-скрепка и персональный AI-наставник в Duolingo-like приложении про финансовые привычки.
 Твоя задача — вести живой разговор, собрать финансовую ситуацию пользователя и подготовить его к персональному пути уровней.
-Отвечай только от лица FinBro, коротко, дружелюбно и по-русски.
+Отвечай только от лица ФИНБРО, коротко, дружелюбно и по-русски.
 Не используй банковский жаргон. Не давай инвестиционных обещаний. Не говори, что ты отдельный внешний чат.
 Если данных мало, задай один конкретный уточняющий вопрос.
 Когда уже понятны доход, обязательные траты, долги/кредиты, подушка и цель, предложи нажать «Построить путь»."#;
@@ -257,7 +257,7 @@ pub async fn diagnose(
     }
     let user_id = optional_user_id_from_headers(&headers)?;
 
-    let system_prompt = r#"Ты FinBro - финансовый эксперт и наставник.
+    let system_prompt = r#"Ты ФИНБРО - финансовый эксперт и наставник.
 Твоя задача - проанализировать диалог с пользователем, заполнить его финансовый профиль, выдать краткий диагноз и составить персональный путь развития (Roadmap) из 4-6 уровней.
 Ответь СТРОГО в формате JSON без markdown разметки. Структура ответа:
 {
@@ -621,7 +621,7 @@ fn fallback_diagnosis(chat_history: &str) -> Value {
         json!({
             "id": 1,
             "title": "Финансовый снимок",
-            "description": "FinClip помогает собрать отдельный профиль: доход, траты, долги, подушка и цель.",
+            "description": "ФИНБРО помогает собрать отдельный профиль: доход, траты, долги, подушка и цель.",
             "icon_name": "Sprout",
             "tasks": [
                 { "id": 1, "title": "Записать доход месяца", "type": "action", "crystals": 20 },

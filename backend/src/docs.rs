@@ -47,9 +47,9 @@ impl ErrorResponse {
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "FinBro API",
+        title = "ФИНБРО API",
         version = "0.1.0",
-        description = "REST API for FinBro: AI financial chat, user profile diagnosis, voice transcription, TTS, consultations and documented CRUD examples."
+        description = "REST API for ФИНБРО: AI financial chat, user profile diagnosis, voice transcription, TTS, consultations and documented CRUD examples."
     ),
     servers(
         (url = "http://localhost:8000", description = "Local Docker backend")

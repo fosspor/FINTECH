@@ -17,7 +17,7 @@ export const DEFAULT_LEVELS: DefaultLevel[] = [
   {
     id: 1,
     title: "Стартовая диагностика",
-    description: "FinClip помогает понять, где сейчас деньги, риски и первая точка роста.",
+    description: "ФИНБРО помогает понять, где сейчас деньги, риски и первая точка роста.",
     icon_name: "Sprout",
     tasks: [
       { id: 1, title: "Ответить на 5 вопросов о деньгах", type: "lesson", crystals: 20 },

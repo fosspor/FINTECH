@@ -26,7 +26,7 @@ export function AvatarCard() {
       <div className="border-t border-white/10 bg-background/70 p-6 backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">FinBro</h2>
+            <h2 className="text-2xl font-bold tracking-tight">ФИНБРО</h2>
             <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
               <Trophy className="w-4 h-4 text-warning" />
               Level {level} Mentor

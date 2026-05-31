@@ -6,8 +6,6 @@ use tracing::info;
 use utoipa::ToSchema;
 use crate::docs::ErrorResponse;
 
-const API_WAITING_MESSAGE: &str = "ожидается api";
-const SPEECH_NOT_RECOGNIZED_MESSAGE: &str = "Не получилось распознать, попробуй ещё раз.";
 const MAX_AUDIO_BYTES: usize = 10 * 1024 * 1024;
 const LPCM_SAMPLE_RATE: &str = "16000";
 

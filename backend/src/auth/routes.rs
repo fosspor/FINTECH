@@ -495,6 +495,169 @@ async fn create_default_user_records(
             })?;
     }
 
+    create_default_learning_path(db, user_id).await?;
+
+    Ok(())
+}
+
+pub(crate) async fn create_default_learning_path(
+    db: &PgPool,
+    user_id: Uuid,
+) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    let existing_path = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM financial_paths WHERE user_id = $1 AND status = 'active' LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to check default learning path: {err}");
+        internal_error()
+    })?;
+
+    if existing_path.is_some() {
+        return Ok(());
+    }
+
+    let path_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO financial_paths (user_id, title, description, order_index, status)
+        VALUES ($1, 'Персональный путь', 'Базовый путь по финансовым привычкам: от диагностики до ежедневного прогресса.', 0, 'active')
+        RETURNING id
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(db)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to create default learning path: {err}");
+        internal_error()
+    })?;
+
+    let levels = vec![
+        (
+            "Стартовая диагностика",
+            "Понимаем, где сейчас деньги, риски и первая точка роста.",
+            "Sprout",
+            vec![
+                ("Ответить на 5 вопросов о деньгах", "lesson", 20),
+                ("Выбрать главную финансовую цель", "action", 30),
+                ("Проверить первый шаг", "quiz", 25),
+            ],
+        ),
+        (
+            "Контроль импульсивных покупок",
+            "Учимся делать паузу перед покупкой и замечать ловушки.",
+            "Shield",
+            vec![
+                ("Распознать 3 покупки-ловушки", "mini_game", 30),
+                ("Включить правило 24 часов", "action", 40),
+                ("Найти одну лишнюю подписку", "action", 35),
+            ],
+        ),
+        (
+            "Бюджет без боли",
+            "Раскладываем доходы и траты по понятным категориям.",
+            "Target",
+            vec![
+                ("Разделить траты на обязательные и свободные", "lesson", 25),
+                ("Собрать бюджет недели", "action", 45),
+                ("Пройти квиз по категориям", "quiz", 30),
+            ],
+        ),
+        (
+            "Подушка безопасности",
+            "Копим первый резерв без давления.",
+            "PiggyBank",
+            vec![
+                ("Посчитать минимальную подушку", "lesson", 25),
+                ("Отложить первую маленькую сумму", "action", 60),
+                ("Поймать монеты в мини-игре", "mini_game", 35),
+            ],
+        ),
+        (
+            "Кредиты и долги",
+            "Находим красную зону и снижаем переплату.",
+            "AlertCircle",
+            vec![
+                ("Понять стоимость кредитки", "lesson", 30),
+                ("Выбрать стратегию закрытия долга", "quiz", 45),
+                ("Найти самый дорогой долг", "action", 50),
+            ],
+        ),
+        (
+            "Финансовые цели",
+            "Превращаем большую цель в маленькие шаги.",
+            "Target",
+            vec![
+                ("Сформулировать цель в цифрах", "action", 35),
+                ("Разбить цель на недели", "lesson", 30),
+                ("Поставить первую галочку", "action", 45),
+            ],
+        ),
+        (
+            "Инвестиции для новичка",
+            "Разбираем риск, горизонт и рост капитала простыми словами.",
+            "TrendingUp",
+            vec![
+                ("Разобраться с риском и горизонтом", "lesson", 35),
+                ("Отличить инвестицию от ставки", "quiz", 40),
+                ("Собрать осторожный стартовый план", "action", 55),
+            ],
+        ),
+        (
+            "Привычки и streak",
+            "Закрепляем ежедневные действия, награды и серию дней.",
+            "Zap",
+            vec![
+                ("Выбрать действие на 2 минуты каждый день", "action", 30),
+                ("Сохранить streak", "mini_game", 45),
+                ("Открыть награду за уровень", "action", 60),
+            ],
+        ),
+    ];
+
+    for (level_index, (title, description, icon_name, tasks)) in levels.iter().enumerate() {
+        let level_id = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            INSERT INTO levels (path_id, title, description, icon_name, order_index)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+            "#,
+        )
+        .bind(path_id)
+        .bind(*title)
+        .bind(*description)
+        .bind(*icon_name)
+        .bind((level_index + 1) as i32)
+        .fetch_one(db)
+        .await
+        .map_err(|err| {
+            tracing::error!("Failed to create default level: {err}");
+            internal_error()
+        })?;
+
+        for (task_index, (task_title, task_type, crystals)) in tasks.iter().enumerate() {
+            sqlx::query(
+                r#"
+                INSERT INTO tasks (level_id, title, description, task_type, reward_crystals, order_index)
+                VALUES ($1, $2, '', $3, $4, $5)
+                "#,
+            )
+            .bind(level_id)
+            .bind(*task_title)
+            .bind(*task_type)
+            .bind(*crystals)
+            .bind((task_index + 1) as i32)
+            .execute(db)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to create default task: {err}");
+                internal_error()
+            })?;
+        }
+    }
+
     Ok(())
 }
 

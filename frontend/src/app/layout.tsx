@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "FinBro - AI Financial Mentor",
+  title: "ФИНБРО - AI-наставник финансовых решений",
   description: "Твой персональный AI-наставник финансовых решений.",
 };
 

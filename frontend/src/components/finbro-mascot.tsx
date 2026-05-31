@@ -93,7 +93,7 @@ export function FinbroMascot({
       <motion.svg
         viewBox="0 0 240 240"
         role="img"
-        aria-label="FinBro paperclip mascot"
+        aria-label="ФИНБРО, маскот-скрепка"
         className="relative z-10 h-full w-full drop-shadow-2xl"
         animate={{ y: [0, config.bounce, 0], rotate: [0, config.tilt, 0] }}
         transition={{ repeat: Infinity, duration, ease: "easeInOut" }}

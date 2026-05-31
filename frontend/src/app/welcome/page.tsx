@@ -33,7 +33,7 @@ export default function WelcomePage() {
           className="mb-3 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.24em] text-primary"
         >
           <Sparkles className="h-4 w-4" />
-          FinBro
+          ФИНБРО
         </motion.div>
 
         <div className="relative mx-auto flex min-h-[300px] w-full max-w-md flex-1 items-center justify-center">
@@ -88,24 +88,24 @@ export default function WelcomePage() {
           </h1>
 
           <p className="mx-auto mb-7 max-w-[330px] text-[17px] font-medium leading-relaxed text-muted-foreground">
-            FinClip выслушает твою ситуацию и соберёт персональный путь с уровнями, заданиями и наградами.
+            Впиши имя, и AI-наставник начнёт диалог лично с тобой: соберёт ситуацию и построит путь с уровнями, заданиями и наградами.
           </p>
 
           <div className="flex flex-col gap-3">
-            <Link href="/chat" className="block">
+            <Link href="/auth" className="block">
               <Button className="h-15 min-h-15 w-full rounded-2xl text-[17px] font-extrabold gap-3 shadow-lg shadow-primary/25">
                 <Mic className="h-5 w-5" />
-                Начать голосом
+                Начать
               </Button>
             </Link>
 
-            <Link href="/chat" className="block">
+            <Link href="/auth" className="block">
               <Button
                 variant="outline"
                 className="h-14 w-full rounded-2xl border-white/10 bg-white/5 text-[16px] font-bold backdrop-blur-sm hover:bg-white/10 gap-3"
               >
                 <Keyboard className="h-5 w-5 text-muted-foreground" />
-                Написать FinClip
+                Ввести имя
               </Button>
             </Link>
           </div>

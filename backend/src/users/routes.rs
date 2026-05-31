@@ -37,7 +37,7 @@ pub struct StreakSummary {
 
 #[derive(Serialize, ToSchema)]
 #[schema(example = json!({
-    "name": "FinClip",
+    "name": "ФИНБРО",
     "base_model": "paperclip",
     "current_emotion": "happy"
 }))]
@@ -54,7 +54,7 @@ pub struct HeroSummary {
     "created_at": "2026-05-30T18:52:01Z",
     "currency": { "crystals": 120, "freezes": 1 },
     "streak": { "current_streak": 4, "longest_streak": 12 },
-    "hero": { "name": "FinClip", "base_model": "paperclip", "current_emotion": "happy" }
+    "hero": { "name": "ФИНБРО", "base_model": "paperclip", "current_emotion": "happy" }
 }))]
 pub struct UserMeResponse {
     pub id: Uuid,
@@ -162,7 +162,7 @@ pub async fn me(
             longest_streak,
         },
         hero: HeroSummary {
-            name: hero_name.unwrap_or_else(|| "FinClip".to_string()),
+            name: hero_name.unwrap_or_else(|| "ФИНБРО".to_string()),
             base_model: base_model.unwrap_or_else(|| "paperclip".to_string()),
             current_emotion: current_emotion.unwrap_or_else(|| "happy".to_string()),
         },

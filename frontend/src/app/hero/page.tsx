@@ -39,7 +39,7 @@ export default function HeroPage() {
           </Link>
           <div>
             <h1 className="font-semibold text-lg tracking-tight">Мой герой</h1>
-            <p className="text-xs text-muted-foreground">FinBro растет вместе с твоими привычками</p>
+            <p className="text-xs text-muted-foreground">ФИНБРО растет вместе с твоими привычками</p>
           </div>
         </div>
       </header>
@@ -58,7 +58,7 @@ export default function HeroPage() {
         <div className="w-full max-w-md">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black tracking-tight">FinBro</h2>
+              <h2 className="text-3xl font-black tracking-tight">ФИНБРО</h2>
               <p className="text-muted-foreground">Твой игровой финансовый наставник</p>
             </div>
             <div className="rounded-2xl border border-primary/25 bg-primary/15 px-4 py-2 text-right">
