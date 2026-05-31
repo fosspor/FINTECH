@@ -6,6 +6,8 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::hash::{Hash, Hasher};
+use std::collections::{hash_map::DefaultHasher, HashSet};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
@@ -90,6 +92,11 @@ pub struct CompleteTaskResponse {
     pub crystals: i32,
     pub current_streak: i32,
     pub rewarded: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct CompleteTaskRequest {
+    pub reward_override: Option<i32>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -190,6 +197,7 @@ pub async fn complete_task(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Path(task_id): Path<Uuid>,
+    maybe_body: Option<Json<CompleteTaskRequest>>,
 ) -> Result<Json<CompleteTaskResponse>, (StatusCode, Json<ErrorResponse>)> {
     let user_id = user_id_from_headers(&headers)?;
 
@@ -238,7 +246,15 @@ pub async fn complete_task(
         internal_error()
     })?;
 
-    let reward = if was_completed { 0 } else { task_row.4 };
+    let mut reward = if was_completed { 0 } else { task_row.4 };
+    if !was_completed {
+        if let Some(Json(body)) = &maybe_body {
+            if let Some(override_val) = body.reward_override {
+                let bounded = override_val.clamp(0, task_row.4);
+                reward = bounded;
+            }
+        }
+    }
 
     let crystals = sqlx::query_scalar::<_, i32>(
         r#"
@@ -434,7 +450,7 @@ async fn update_streak(
     path = "/levels/{id}/quiz",
     tag = "learning",
     summary = "Generate a quiz for a level",
-    description = "For even levels generates a financial literacy quiz via configured AI provider (YandexGPT or OpenAI). For odd levels returns a smart static quiz.",
+    description = "Generates a financial literacy quiz via configured AI provider (YandexGPT or OpenAI) for any level. Falls back to a smart static quiz if the AI provider is unavailable or returns invalid data.",
     params(LevelPath),
     security(("bearer_auth" = [])),
     responses(
@@ -470,20 +486,7 @@ pub async fn generate_quiz(
     })?
     .ok_or_else(not_found)?;
 
-    // Odd levels -> static quiz
-    if order_index % 2 != 0 {
-        let (question, correct, wrongs) = build_static_quiz(&title, description.as_deref());
-        let mut answers = Vec::with_capacity(1 + wrongs.len());
-        answers.push(correct.clone());
-        answers.extend(wrongs.iter().cloned());
-        return Ok(Json(GenerateQuizResponse {
-            question,
-            answers,
-            correct_answer: correct,
-        }));
-    }
-
-    // Even levels -> AI-generated quiz
+    // AI-generated quiz for all levels (with static fallback)
     let topic = format!("{} {}", title, description.clone().unwrap_or_default());
     let chat_history = payload.chat_history.unwrap_or_default();
     let system_prompt = r#"Ты генерируешь 1 обучающий вопрос по финансовой грамотности (RU) с 1 правильным и 3 неправильными вариантами.
@@ -522,9 +525,23 @@ pub async fn generate_quiz(
         }
     };
 
-    let mut answers = Vec::with_capacity(1 + wrong.len());
-    answers.push(correct.clone());
-    answers.extend(wrong.into_iter());
+    // Limit to exactly 3 answers total: 1 correct + 2 deterministically selected wrong
+    let seed = format!("{}:{}:{}", user_id, level_id, question);
+    let mut seen = HashSet::<String>::new();
+    let mut wrong_unique: Vec<String> = wrong
+        .into_iter()
+        .filter(|w| !w.trim().is_empty())
+        .filter(|w| w != &correct)
+        .filter(|w| seen.insert(w.clone()))
+        .collect();
+    wrong_unique = stable_shuffle(wrong_unique, &seed);
+    let mut picked: Vec<String> = Vec::with_capacity(3);
+    picked.push(correct.clone());
+    for w in wrong_unique.into_iter().take(2) {
+        if picked.len() >= 3 { break; }
+        if !picked.iter().any(|x| x == &w) { picked.push(w); }
+    }
+    let answers = stable_shuffle(picked, &seed);
 
     Ok(Json(GenerateQuizResponse {
         question,
@@ -593,6 +610,20 @@ fn build_static_quiz(title: &str, description: Option<&str>) -> (String, String,
             "Отложить тему до конца месяца".to_string(),
         ],
     )
+}
+
+fn stable_shuffle(mut answers: Vec<String>, seed: &str) -> Vec<String> {
+    let mut keyed: Vec<(u64, String)> = answers
+        .drain(..)
+        .map(|ans| {
+            let mut hasher = DefaultHasher::new();
+            seed.hash(&mut hasher);
+            ans.hash(&mut hasher);
+            (hasher.finish(), ans)
+        })
+        .collect();
+    keyed.sort_by_key(|(k, _)| *k);
+    keyed.into_iter().map(|(_, v)| v).collect()
 }
 
 fn not_found() -> (StatusCode, Json<ErrorResponse>) {

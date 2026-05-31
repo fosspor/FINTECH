@@ -50,6 +50,7 @@ export default function LevelDetailsPage() {
   const [answerState, setAnswerState] = useState<"idle" | "correct" | "wrong">("idle");
   const [isCompleting, setIsCompleting] = useState(false);
   const [reward, setReward] = useState<{ crystals: number; title: string } | null>(null);
+  const [submitCooldown, setSubmitCooldown] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +60,7 @@ export default function LevelDetailsPage() {
         const response = await authFetch(apiUrl(`/levels/${levelId}`));
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled) setLevel(data);
+          if (!cancelled) setLevel(augmentLevelWithExtraQuizzes(data));
           return;
         }
       } catch (error) {
@@ -71,13 +72,13 @@ export default function LevelDetailsPage() {
         try {
           const parsed = JSON.parse(stored);
           const found = parsed.find((l: LevelDetails) => l.id.toString() === levelId);
-          if (!cancelled) setLevel(found || null);
+          if (!cancelled) setLevel(found ? augmentLevelWithExtraQuizzes(found) : null);
         } catch (e) {
           console.error("Failed to parse dynamic path", e);
         }
       } else {
         const found = DEFAULT_LEVELS.find((l) => l.id.toString() === levelId);
-        if (!cancelled) setLevel(found || null);
+        if (!cancelled) setLevel(found ? augmentLevelWithExtraQuizzes(found as unknown as LevelDetails) : null);
       }
 
       if (!cancelled) setLoading(false);
@@ -106,15 +107,41 @@ export default function LevelDetailsPage() {
         const historyStr = (typeof window !== "undefined" ? localStorage.getItem("finbro_chat_messages") : null) || "";
         type StoredMsg = { role: string; content: string };
         const chat_history = historyStr ? (JSON.parse(historyStr) as StoredMsg[]).map((m: StoredMsg) => `${m.role}: ${m.content}`).join("\n") : "";
-        const res = await authFetch(apiUrl(`/levels/${levelId}/quiz`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_history }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          // Cache quiz for this task so buildTaskLesson can use it
-          sessionStorage.setItem(`finbro_quiz_${levelId}_${task.id}` , JSON.stringify(data));
+        const cacheKey = `finbro_quiz_cache_${levelId}_${task.id}`;
+        const now = Date.now();
+        const dayMs = 24 * 60 * 60 * 1000;
+        let payload: { question: string; answers: string[]; correct_answer: string } | null = null;
+
+        const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw) as { ts: number; data: { question: string; answers: string[]; correct_answer: string } };
+            if (now - cached.ts < dayMs) {
+              payload = cached.data;
+            } else {
+              localStorage.removeItem(cacheKey);
+            }
+          } catch {}
+        }
+
+        if (!payload) {
+          const res = await authFetch(apiUrl(`/levels/${levelId}/quiz`), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_history }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            payload = { question: data.question, answers: data.answers as string[], correct_answer: data.correct_answer };
+            localStorage.setItem(cacheKey, JSON.stringify({ ts: now, data: payload }));
+          }
+        }
+
+        if (payload) {
+          const seed = `${levelId}:${task.id}:${payload.question}`;
+          const limited = limitAnswersToThree(payload.answers, payload.correct_answer, seed);
+          const stored = { question: payload.question, answers: limited, correct_answer: payload.correct_answer };
+          sessionStorage.setItem(`finbro_quiz_${levelId}_${task.id}`, JSON.stringify(stored));
         }
       } catch (e) {
         console.error("Failed to fetch generated quiz", e);
@@ -129,7 +156,7 @@ export default function LevelDetailsPage() {
     setAnswerState("idle");
   };
 
-  const completeTask = async (task: TaskData) => {
+  const completeTask = async (task: TaskData, rewardOverride?: number) => {
     setIsCompleting(true);
 
     try {
@@ -139,11 +166,16 @@ export default function LevelDetailsPage() {
       if (typeof task.id === "string") {
         const response = await authFetch(apiUrl(`/tasks/${task.id}/complete`), {
           method: "POST",
+          headers: rewardOverride != null ? { "Content-Type": "application/json" } : undefined,
+          body: rewardOverride != null ? JSON.stringify({ reward_override: Math.max(0, Math.floor(rewardOverride)) }) : undefined,
         });
         if (!response.ok) throw new Error(`Complete task failed: ${response.status}`);
         const data = await response.json();
         nextStatus = data.task?.status ?? "completed";
         earnedCrystals = data.crystals_awarded ?? task.crystals;
+      }
+      if (typeof task.id !== "string" && rewardOverride != null) {
+        earnedCrystals = Math.max(0, Math.floor(rewardOverride));
       }
 
       setLevel((current) => {
@@ -168,9 +200,25 @@ export default function LevelDetailsPage() {
 
   const submitTask = async () => {
     if (!activeTask || !lesson) return;
+    if (submitCooldown) return;
+    setSubmitCooldown(true);
 
     if (lesson.kind === "quiz" && selectedAnswer !== lesson.correctAnswer) {
       setAnswerState("wrong");
+      // enqueue to practice queue
+      try {
+        enqueuePracticeItem(
+          String((level as LevelDetails).id),
+          String(activeTask.id),
+          lesson.prompt,
+          lesson.answers,
+          lesson.correctAnswer
+        );
+      } catch {}
+      // partial reward policy: for одиночный вопрос — 0% (легко изменить на 50% позже)
+      const partial = 0;
+      await completeTask(activeTask, partial);
+      setReward({ crystals: partial, title: activeTask.title });
       return;
     }
 
@@ -181,6 +229,7 @@ export default function LevelDetailsPage() {
 
     setAnswerState("correct");
     await completeTask(activeTask);
+    setSubmitCooldown(false);
   };
 
   if (loading) {
@@ -447,7 +496,7 @@ export default function LevelDetailsPage() {
                   <Button
                     type="button"
                     onClick={submitTask}
-                    disabled={isCompleting || (lesson.kind === "quiz" ? !selectedAnswer : reflection.trim().length < 1)}
+                    disabled={isCompleting || submitCooldown || (lesson.kind === "quiz" ? !selectedAnswer : reflection.trim().length < 1)}
                     className="h-14 w-full rounded-2xl text-base font-extrabold shadow-lg shadow-primary/20"
                   >
                     {isCompleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
@@ -463,11 +512,97 @@ export default function LevelDetailsPage() {
   );
 }
 
+function stableShuffle(items: string[], seed: string): string[] {
+  const keyed = items.map((v) => ({ key: hashStr(`${seed}|${v}`), v }));
+  keyed.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  return keyed.map((x) => x.v);
+}
+
+function hashStr(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// Ensure we always show at most 3 options and include the correct answer deterministically
+function limitAnswersToThree(allAnswers: string[], correct: string, seed: string): string[] {
+  const unique = Array.from(new Set((allAnswers || []).filter((a) => typeof a === "string" && a.trim().length > 0)));
+  const shuffled = stableShuffle(unique, seed);
+  const out: string[] = [];
+  if (correct && correct.trim().length > 0) out.push(correct);
+  for (const a of shuffled) {
+    if (out.length >= 3) break;
+    if (!out.includes(a)) out.push(a);
+  }
+  return out.slice(0, 3);
+}
+
 function getTaskTypeLabel(type: string) {
   if (type === "mini_game") return "Мини-игра";
   if (type === "quiz") return "Квиз";
   if (type === "lesson") return "Урок";
   return "Действие";
+}
+
+function augmentLevelWithExtraQuizzes(level: LevelDetails): LevelDetails {
+  const tasks = Array.isArray(level.tasks) ? level.tasks : [];
+  const quizCount = tasks.filter((t) => t.type === "quiz").length;
+  const extraCount = quizCount === 0 ? 1 : quizCount; // if none, add 1; otherwise duplicate
+  if (extraCount <= 0) return level;
+
+  const numericIds = tasks
+    .map((t) => (typeof t.id === "number" ? (t.id as number) : Number.NaN))
+    .filter((n) => Number.isFinite(n)) as number[];
+  const nextId = (numericIds.length ? Math.max(...numericIds) : tasks.length) + 1;
+
+  const extras: TaskData[] = Array.from({ length: extraCount }).map((_, i) => ({
+    id: nextId + i,
+    title: `Мини‑квиз: ${String(level.title).trim()} #${i + 1}`,
+    type: "quiz",
+    crystals: 30,
+    status: "pending",
+  }));
+
+  return { ...level, tasks: [...tasks, ...extras] };
+}
+
+type PracticeItem = {
+  id: string;
+  levelId: string;
+  taskId: string;
+  question: string;
+  answers: string[];
+  correct_answer: string;
+  created_at: number;
+};
+
+function enqueuePracticeItem(
+  levelId: string,
+  taskId: string,
+  question: string,
+  answers: string[],
+  correct_answer: string
+) {
+  if (typeof window === "undefined") return;
+  const key = "finbro_practice";
+  const raw = localStorage.getItem(key);
+  const items: PracticeItem[] = raw ? JSON.parse(raw) : [];
+  const exists = items.some((it) => it.question === question && it.levelId === levelId);
+  if (exists) return;
+  const item: PracticeItem = {
+    id: `${levelId}:${taskId}:${hashStr(`${question}|${correct_answer}`)}`,
+    levelId,
+    taskId,
+    question,
+    answers: [...answers],
+    correct_answer,
+    created_at: Date.now(),
+  };
+  items.push(item);
+  localStorage.setItem(key, JSON.stringify(items));
 }
 
 function buildTaskLesson(task: TaskData, level: LevelDetails) {
@@ -480,8 +615,9 @@ function buildTaskLesson(task: TaskData, level: LevelDetails) {
       const stored = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
       if (stored) {
         const parsed = JSON.parse(stored);
-        const answers: string[] = parsed.answers || [];
-        const correct: string = parsed.correct_answer || (answers[0] ?? "");
+        const correct: string = parsed.correct_answer || "";
+        const seed = `${level.id}:${task.id}:${parsed.question || ""}`;
+        const answers: string[] = limitAnswersToThree(parsed.answers || [], correct, seed);
         return {
           kind: "quiz" as const,
           icon: Target,

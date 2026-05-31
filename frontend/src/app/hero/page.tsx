@@ -131,6 +131,13 @@ export default function HeroPage() {
               })}
             </div>
           </div>
+
+          {/* CTA to charts page below emotion panel */}
+          <div className="mt-6">
+            <Link href="/hero/charts">
+              <Button className="w-full rounded-full">Открыть аналитику чата</Button>
+            </Link>
+          </div>
         </div>
       </section>
     </main>

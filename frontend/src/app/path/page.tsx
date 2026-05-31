@@ -25,6 +25,7 @@ export default function PathPage() {
   const [levels, setLevels] = useState<LevelData[]>([]);
   const [stats, setStats] = useState({ streak: 0, crystals: 0 });
   const [loading, setLoading] = useState(true);
+  const [practiceCount, setPracticeCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,9 +43,10 @@ export default function PathPage() {
             ...level,
             mascot: getLevelMascot(level.order_index, `${level.title} ${level.description ?? ""}`),
           }));
+          const padded = ensureEightLevels(fromApi);
           if (!cancelled) {
-            setLevels(fromApi);
-            localStorage.setItem("finbro_path", JSON.stringify(fromApi));
+            setLevels(padded);
+            localStorage.setItem("finbro_path", JSON.stringify(padded));
           }
         } else {
           loadLocalPath();
@@ -94,10 +96,45 @@ export default function PathPage() {
     }
 
     loadPath();
+    function refreshPractice() {
+      try {
+        const raw = localStorage.getItem("finbro_practice");
+        const items = raw ? JSON.parse(raw) : [];
+        setPracticeCount(Array.isArray(items) ? items.length : 0);
+      } catch { setPracticeCount(0); }
+    }
+    refreshPractice();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "finbro_practice") refreshPractice();
+    };
+    window.addEventListener("storage", onStorage);
     return () => {
       cancelled = true;
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
+
+function ensureEightLevels(levels: LevelData[]): LevelData[] {
+  if (levels.length >= 8) return levels;
+  const existingOrders = new Set(levels.map((l) => l.order_index ?? Number(l.id)));
+  const needed = 8 - levels.length;
+  const placeholders: LevelData[] = [];
+  for (const d of DEFAULT_LEVELS) {
+    const ord = d.id;
+    if (existingOrders.has(ord)) continue;
+    placeholders.push({
+      id: d.id,
+      title: d.title,
+      description: d.description,
+      icon_name: d.icon_name,
+      status: "locked",
+      order_index: d.id,
+      mascot: getLevelMascot(d.id, `${d.title} ${d.description}`),
+    });
+    if (placeholders.length >= needed) break;
+  }
+  return [...levels, ...placeholders].slice(0, 8);
+}
 
   if (loading) {
     return (
@@ -140,6 +177,15 @@ export default function PathPage() {
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="flex flex-col items-center py-12 px-6 pb-8 relative w-full overflow-x-hidden min-h-[800px]">
+          {/* Practice entry top-left */}
+          <div className="absolute left-3 top-2 md:left-4 md:top-3 z-10">
+            <Link href="/path/practice">
+              <div className="group cursor-pointer rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 shadow-none hover:shadow-sm transition max-w-[180px]">
+                <div className="text-[11px] font-black uppercase tracking-widest text-primary leading-none">Отработка материала</div>
+                <div className="mt-1 text-foreground font-bold text-xs leading-none">{practiceCount} вопрос(ов)</div>
+              </div>
+            </Link>
+          </div>
           {/* Connecting dashed line in the center */}
           <div className="absolute top-12 bottom-12 left-1/2 -translate-x-1/2 w-1 border-l-4 border-dashed border-border/40 z-0" />
 
