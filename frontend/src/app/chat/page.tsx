@@ -293,11 +293,7 @@ export default function Home() {
         formData.append("audio", audioBlob, audioBlob.type === "audio/lpcm" ? "voice.raw" : "voice.ogg");
       }
 
-<<<<<<< HEAD
-      const transcriptionResponse = await fetch(`${API_URL}/api/voice/transcribe`, {
-=======
       const transcriptionResponse = await authFetch(apiUrl("/api/voice/transcribe"), {
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
         method: "POST",
         headers: NGROK_API_HEADERS,
         body: formData,

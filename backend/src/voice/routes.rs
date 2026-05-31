@@ -125,10 +125,6 @@ async fn transcribe_audio(
 
         if name == "audio" {
             let content_type = field.content_type().unwrap_or("").to_string();
-<<<<<<< HEAD
-            let data = field.bytes().await.unwrap_or_default();
-            info!("Received audio blob of size: {} bytes, content-type: {}", data.len(), content_type);
-=======
             let data = field.bytes().await.map_err(|err| {
                 tracing::error!("Failed to read audio field: {err}");
                 error(
@@ -151,7 +147,6 @@ async fn transcribe_audio(
                 data.len(),
                 content_type
             );
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
             audio = Some(AudioPayload {
                 bytes: data.to_vec(),
                 content_type,
@@ -159,18 +154,6 @@ async fn transcribe_audio(
         }
     }
 
-<<<<<<< HEAD
-    match audio {
-        Some(payload) => match recognize_with_speechkit(payload).await {
-            Ok(text) => Json(json!({ "text": text })),
-            Err(message) => Json(json!({ "text": null, "error": message })),
-        },
-        None => Json(json!({ "text": null, "error": SPEECH_NOT_RECOGNIZED_MESSAGE })),
-    }
-}
-
-async fn recognize_with_speechkit(audio: AudioPayload) -> Result<String, &'static str> {
-=======
     let Some(payload) = audio else {
         return Err(error(
             StatusCode::BAD_REQUEST,
@@ -186,7 +169,6 @@ async fn recognize_with_speechkit(audio: AudioPayload) -> Result<String, &'stati
 async fn recognize_with_speechkit(
     audio: AudioPayload,
 ) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
     let api_key = env::var("YANDEX_SPEECHKIT_KEY")
         .ok()
         .filter(|value| !value.trim().is_empty() && !value.contains("your_"))
@@ -194,14 +176,6 @@ async fn recognize_with_speechkit(
         .unwrap_or_default();
     let folder_id = env::var("YANDEX_FOLDER_ID").unwrap_or_default();
 
-<<<<<<< HEAD
-    if api_key.trim().is_empty() || folder_id.trim().is_empty() {
-        return Err(API_WAITING_MESSAGE);
-    }
-
-    let format_params = if audio.content_type.contains("audio/lpcm") {
-        format!("format=lpcm&sampleRateHertz={}", LPCM_SAMPLE_RATE)
-=======
     if api_key.trim().is_empty()
         || api_key.contains("your_")
         || folder_id.trim().is_empty()
@@ -216,17 +190,11 @@ async fn recognize_with_speechkit(
 
     let format_params = if audio.content_type.contains("audio/lpcm") {
         format!("format=lpcm&sampleRateHertz={LPCM_SAMPLE_RATE}")
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
     } else {
         "format=oggopus".to_string()
     };
     let url = format!(
-<<<<<<< HEAD
-        "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?folderId={}&lang=ru-RU&{}",
-        folder_id, format_params
-=======
         "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?folderId={folder_id}&lang=ru-RU&{format_params}"
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
     );
 
     let client = Client::new();
@@ -239,32 +207,15 @@ async fn recognize_with_speechkit(
         .await;
 
     let Ok(response) = response else {
-<<<<<<< HEAD
-        return Err(SPEECH_NOT_RECOGNIZED_MESSAGE);
-=======
         return Err(error(
             StatusCode::SERVICE_UNAVAILABLE,
             "speechkit_unavailable",
             "Yandex SpeechKit STT request failed",
         ));
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
     };
 
     if !response.status().is_success() {
         tracing::error!("SpeechKit STT error: {}", response.text().await.unwrap_or_default());
-<<<<<<< HEAD
-        return Err(SPEECH_NOT_RECOGNIZED_MESSAGE);
-    }
-
-    match response.json::<SpeechKitResponse>().await {
-        Ok(data) => data
-            .result
-            .filter(|text| !text.trim().is_empty())
-            .ok_or(SPEECH_NOT_RECOGNIZED_MESSAGE),
-        Err(error) => {
-            tracing::error!("Failed to parse SpeechKit STT response: {}", error);
-            Err(SPEECH_NOT_RECOGNIZED_MESSAGE)
-=======
         return Err(error(
             StatusCode::SERVICE_UNAVAILABLE,
             "speechkit_unavailable",
@@ -287,7 +238,6 @@ async fn recognize_with_speechkit(
                 "speechkit_unavailable",
                 "Failed to parse SpeechKit STT response",
             ))
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
         }
     }
 }

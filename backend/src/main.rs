@@ -66,11 +66,7 @@ async fn main() {
         .route("/auth/logout", post(auth::routes::logout))
         
         // Voice & TTS routes
-<<<<<<< HEAD
-        .route("/api/voice/transcribe", post(voice::routes::transcribe))
-=======
         .route("/api/voice/transcribe", post(voice::routes::transcribe_api))
->>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
         .route("/voice/transcribe", post(voice::routes::transcribe))
         .route("/tts/generate", post(tts::routes::generate))
         
