@@ -94,12 +94,32 @@ export default function LevelDetailsPage() {
 
   const firstPendingIndex = level?.tasks.findIndex((item) => item.status !== "completed") ?? -1;
 
-  const startTask = (task: TaskData) => {
+  const startTask = async (task: TaskData) => {
     setActiveTask(task);
     setSelectedAnswer("");
     setReflection("");
     setAnswerState("idle");
     setReward(null);
+
+    if (task.type === "quiz") {
+      try {
+        const historyStr = (typeof window !== "undefined" ? localStorage.getItem("finbro_chat_messages") : null) || "";
+        type StoredMsg = { role: string; content: string };
+        const chat_history = historyStr ? (JSON.parse(historyStr) as StoredMsg[]).map((m: StoredMsg) => `${m.role}: ${m.content}`).join("\n") : "";
+        const res = await authFetch(apiUrl(`/levels/${levelId}/quiz`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_history }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Cache quiz for this task so buildTaskLesson can use it
+          sessionStorage.setItem(`finbro_quiz_${levelId}_${task.id}` , JSON.stringify(data));
+        }
+      } catch (e) {
+        console.error("Failed to fetch generated quiz", e);
+      }
+    }
   };
 
   const closeTask = () => {
@@ -454,6 +474,27 @@ function buildTaskLesson(task: TaskData, level: LevelDetails) {
   const topic = `${level.title} ${level.description ?? ""} ${task.title}`.toLowerCase();
 
   if (task.type === "quiz") {
+    // Try to use generated quiz if present
+    try {
+      const key = `finbro_quiz_${level.id}_${task.id}`;
+      const stored = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const answers: string[] = parsed.answers || [];
+        const correct: string = parsed.correct_answer || (answers[0] ?? "");
+        return {
+          kind: "quiz" as const,
+          icon: Target,
+          badge: "Выбери лучший следующий шаг",
+          title: task.title,
+          body: "Здесь нет школьных оценок. Мы тренируем финансовый выбор: что даст максимум спокойствия и контроля уже сегодня.",
+          prompt: parsed.question || "Что лучше сделать первым?",
+          answers: answers.length ? answers : buildQuizAnswers(topic),
+          correctAnswer: correct || buildQuizAnswers(topic)[0],
+          placeholder: "",
+        };
+      }
+    } catch {}
     return {
       kind: "quiz" as const,
       icon: Target,
