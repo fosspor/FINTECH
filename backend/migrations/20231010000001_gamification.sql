@@ -1,5 +1,5 @@
 -- Duolingo-like progression paths
-CREATE TABLE financial_paths (
+CREATE TABLE IF NOT EXISTS financial_paths (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -7,7 +7,7 @@ CREATE TABLE financial_paths (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE levels (
+CREATE TABLE IF NOT EXISTS levels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     path_id UUID NOT NULL REFERENCES financial_paths(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE levels (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     level_id UUID NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE tasks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_tasks (
+CREATE TABLE IF NOT EXISTS user_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -39,14 +39,14 @@ CREATE TABLE user_tasks (
 );
 
 -- Gamification Currencies and Streaks
-CREATE TABLE currencies (
+CREATE TABLE IF NOT EXISTS currencies (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     crystals INTEGER DEFAULT 0,
     freezes INTEGER DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE streaks (
+CREATE TABLE IF NOT EXISTS streaks (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     current_streak INTEGER DEFAULT 0,
     longest_streak INTEGER DEFAULT 0,
@@ -55,7 +55,7 @@ CREATE TABLE streaks (
 );
 
 -- Hero / Avatar Customization
-CREATE TABLE hero_profiles (
+CREATE TABLE IF NOT EXISTS hero_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) DEFAULT 'FinBro',
     base_model VARCHAR(255) DEFAULT 'default',
@@ -63,7 +63,7 @@ CREATE TABLE hero_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE hero_items (
+CREATE TABLE IF NOT EXISTS hero_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     item_type VARCHAR(50) NOT NULL, -- 'clothing', 'accessory', 'background'
@@ -73,7 +73,7 @@ CREATE TABLE hero_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_inventory (
+CREATE TABLE IF NOT EXISTS user_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     item_id UUID NOT NULL REFERENCES hero_items(id) ON DELETE CASCADE,
@@ -83,7 +83,7 @@ CREATE TABLE user_inventory (
 );
 
 -- Reward Cases / Lootboxes
-CREATE TABLE reward_cases (
+CREATE TABLE IF NOT EXISTS reward_cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     rarity VARCHAR(50) DEFAULT 'common',
@@ -91,7 +91,7 @@ CREATE TABLE reward_cases (
     description TEXT
 );
 
-CREATE TABLE case_rewards (
+CREATE TABLE IF NOT EXISTS case_rewards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     case_id UUID NOT NULL REFERENCES reward_cases(id) ON DELETE CASCADE,
     item_id UUID REFERENCES hero_items(id) ON DELETE CASCADE,
@@ -100,7 +100,7 @@ CREATE TABLE case_rewards (
 );
 
 -- Mini Games
-CREATE TABLE mini_games (
+CREATE TABLE IF NOT EXISTS mini_games (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -108,7 +108,7 @@ CREATE TABLE mini_games (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE mini_game_results (
+CREATE TABLE IF NOT EXISTS mini_game_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game_id UUID NOT NULL REFERENCES mini_games(id) ON DELETE CASCADE,
@@ -118,7 +118,7 @@ CREATE TABLE mini_game_results (
 );
 
 -- Leaderboard cache/view representation
-CREATE TABLE leaderboard (
+CREATE TABLE IF NOT EXISTS leaderboard (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     week_start_date DATE NOT NULL,

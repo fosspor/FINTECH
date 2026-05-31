@@ -10,12 +10,32 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FinbroMascot } from "@/components/finbro-mascot";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
+import { apiUrl, authFetch, ensureAuth } from "@/lib/api";
 
 type Message = {
   id: string;
   role: "assistant" | "user";
   content: string;
   isAudio?: boolean;
+};
+
+type DiagnosisPayload = {
+  main_problem?: string;
+  main_risk?: string;
+  first_recommendation?: string;
+};
+
+type ProfilePayload = {
+  monthly_income?: number | null;
+  mandatory_expenses?: number | null;
+  free_money?: number | null;
+  has_credit?: boolean;
+  debts?: unknown;
+  savings_months?: number | null;
+  main_goal?: string | null;
+  spending_leaks?: unknown;
+  risk_zone?: string | null;
+  missing_fields?: unknown;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -28,6 +48,7 @@ const NGROK_API_HEADERS = {
 };
 const CHAT_HISTORY_STORAGE_KEY = "finbro_chat_messages";
 const API_WAITING_MESSAGE = "ожидается api";
+const AI_FALLBACK_MESSAGE = "Я готов собрать профиль. Напиши доход, обязательные расходы, долги и главную цель.";
 const VOICE_LOADING_MESSAGE = "Распознаю голос...";
 const VOICE_RECOGNITION_ERROR_MESSAGE = "Не получилось распознать, попробуй ещё раз.";
 const INITIAL_CHAT_PROMPT =
@@ -59,8 +80,33 @@ function sanitizeSavedMessages(messages: Message[]) {
       message.role === "assistant" &&
       LEGACY_PLACEHOLDER_PATTERNS.some((pattern) => message.content.includes(pattern));
 
-    return isLegacyPlaceholder ? { ...message, content: API_WAITING_MESSAGE } : message;
+    return isLegacyPlaceholder ? { ...message, content: AI_FALLBACK_MESSAGE } : message;
   });
+}
+
+function normalizeDiagnosis(value: DiagnosisPayload | null | undefined) {
+  return {
+    main_problem: value?.main_problem || "Нужно уточнить главную финансовую проблему",
+    main_risk: value?.main_risk || "Без плана расходы могут снова стать непрозрачными",
+    first_recommendation: value?.first_recommendation || "Начни с короткой карты доходов, расходов и долгов",
+  };
+}
+
+function normalizeProfile(value: ProfilePayload | null | undefined) {
+  const riskZone = value?.risk_zone === "green" || value?.risk_zone === "red" ? value.risk_zone : "yellow";
+
+  return {
+    monthly_income: typeof value?.monthly_income === "number" ? value.monthly_income : null,
+    mandatory_expenses: typeof value?.mandatory_expenses === "number" ? value.mandatory_expenses : null,
+    free_money: typeof value?.free_money === "number" ? value.free_money : null,
+    has_credit: Boolean(value?.has_credit),
+    debts: Array.isArray(value?.debts) ? value.debts : [],
+    savings_months: typeof value?.savings_months === "number" ? value.savings_months : null,
+    main_goal: typeof value?.main_goal === "string" ? value.main_goal : null,
+    spending_leaks: Array.isArray(value?.spending_leaks) ? value.spending_leaks : [],
+    risk_zone: riskZone,
+    missing_fields: Array.isArray(value?.missing_fields) ? value.missing_fields : [],
+  };
 }
 
 export default function Home() {
@@ -123,6 +169,7 @@ export default function Home() {
   useEffect(() => {
     if (!hasLoadedMessages || messages.length > 0 || initialRequestStartedRef.current) return;
     initialRequestStartedRef.current = true;
+    ensureAuth().catch((error) => console.error("Failed to prepare auth", error));
     requestInitialMessage();
   }, [hasLoadedMessages, messages.length]);
 
@@ -142,7 +189,7 @@ export default function Home() {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${API_URL}/ai/chat`, {
+      const response = await authFetch(apiUrl("/ai/chat"), {
         method: "POST",
         headers: JSON_API_HEADERS,
         body: JSON.stringify({
@@ -151,7 +198,7 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-      const assistantText = data.response ?? API_WAITING_MESSAGE;
+      const assistantText = data.response ?? AI_FALLBACK_MESSAGE;
 
       setMessages([
         {
@@ -166,7 +213,7 @@ export default function Home() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: API_WAITING_MESSAGE,
+          content: AI_FALLBACK_MESSAGE,
         },
       ]);
     } finally {
@@ -179,7 +226,7 @@ export default function Home() {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${API_URL}/ai/chat`, {
+      const response = await authFetch(apiUrl("/ai/chat"), {
         method: "POST",
         headers: JSON_API_HEADERS,
         body: JSON.stringify({
@@ -188,7 +235,7 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-      const assistantText = data.response ?? API_WAITING_MESSAGE;
+      const assistantText = data.response ?? "Записал. Добавь ещё доход, расходы, долги или финансовую цель.";
 
       setMessages((prev) => [
         ...prev,
@@ -205,7 +252,7 @@ export default function Home() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: API_WAITING_MESSAGE,
+          content: "Записал. Добавь ещё доход, расходы, долги или финансовую цель.",
         },
       ]);
     } finally {
@@ -246,7 +293,11 @@ export default function Home() {
         formData.append("audio", audioBlob, audioBlob.type === "audio/lpcm" ? "voice.raw" : "voice.ogg");
       }
 
+<<<<<<< HEAD
       const transcriptionResponse = await fetch(`${API_URL}/api/voice/transcribe`, {
+=======
+      const transcriptionResponse = await authFetch(apiUrl("/api/voice/transcribe"), {
+>>>>>>> 9aca396 (Update backend and frontend with new features and improvements)
         method: "POST",
         headers: NGROK_API_HEADERS,
         body: formData,
@@ -274,10 +325,6 @@ export default function Home() {
 
       setMessages(nextMessages);
       setIsTyping(false);
-
-      if (transcribedText === API_WAITING_MESSAGE) {
-        return;
-      }
 
       await askFinbro(nextMessages);
     } catch (error) {
@@ -307,17 +354,20 @@ export default function Home() {
     setMessages(finalMessages);
 
     try {
-      const response = await fetch(`${API_URL}/ai/diagnose`, {
+      const response = await authFetch(apiUrl("/ai/diagnose"), {
         method: "POST",
         headers: JSON_API_HEADERS,
         body: JSON.stringify({ chat_history: getHistory(messages) }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Diagnose failed: ${response.status}`);
+      }
+
       const data = await response.json();
 
-      localStorage.setItem("finbro_diagnosis", JSON.stringify(data.diagnosis));
-      if (data.profile) {
-        localStorage.setItem("finbro_profile", JSON.stringify(data.profile));
-      }
+      localStorage.setItem("finbro_diagnosis", JSON.stringify(normalizeDiagnosis(data.diagnosis)));
+      localStorage.setItem("finbro_profile", JSON.stringify(normalizeProfile(data.profile)));
       if (data.path?.length) {
         localStorage.setItem("finbro_path", JSON.stringify(data.path));
       }

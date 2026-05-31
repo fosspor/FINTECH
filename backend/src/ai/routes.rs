@@ -1,20 +1,197 @@
-use axum::Json;
-use serde::Deserialize;
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    Json,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::sync::Arc;
+use utoipa::ToSchema;
 use crate::ai::client::call_ai;
+use crate::auth::routes::user_id_from_headers;
+use crate::docs::ErrorResponse;
+use crate::AppState;
+use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
+#[schema(example = json!({
+    "message": "Мой доход 100000, траты 65000, есть кредитка",
+    "context": "Пользователь хочет накопить подушку"
+}))]
 pub struct ChatRequestPayload {
     pub message: String,
     pub context: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "response": "Понял. Давай уточним кредитку: примерный остаток и минимальный платёж?",
+    "error": null
+}))]
+pub struct ChatResponse {
+    pub response: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[schema(example = json!({
+    "chat_history": "Пользователь: доход 100000, обязательные расходы 65000, есть кредитка, хочу накопить подушку"
+}))]
 pub struct DiagnoseRequestPayload {
     pub chat_history: String,
 }
 
-pub async fn chat(Json(payload): Json<ChatRequestPayload>) -> Json<Value> {
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "type": "кредитка",
+    "amount": 120000,
+    "monthly_payment": 8000
+}))]
+pub struct DebtSnapshot {
+    pub r#type: String,
+    pub amount: Option<i64>,
+    pub monthly_payment: Option<i64>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "monthly_income": 100000,
+    "mandatory_expenses": 65000,
+    "free_money": 35000,
+    "has_credit": true,
+    "debts": [{ "type": "кредитка", "amount": null, "monthly_payment": null }],
+    "savings_months": null,
+    "main_goal": "накопить подушку",
+    "spending_leaks": ["доставка", "подписки"],
+    "risk_zone": "red",
+    "missing_fields": ["сумма и платёж по долгам"]
+}))]
+pub struct FinancialProfileSnapshot {
+    pub monthly_income: Option<i64>,
+    pub mandatory_expenses: Option<i64>,
+    pub free_money: Option<i64>,
+    pub has_credit: bool,
+    pub debts: Vec<DebtSnapshot>,
+    pub savings_months: Option<i64>,
+    pub main_goal: Option<String>,
+    pub spending_leaks: Vec<String>,
+    #[schema(example = "yellow")]
+    pub risk_zone: String,
+    pub missing_fields: Vec<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "main_problem": "Кредитная нагрузка мешает свободным деньгам",
+    "main_risk": "Проценты и минимальные платежи могут съедать прогресс",
+    "first_recommendation": "Выпиши все долги: остаток, ставку и минимальный платёж"
+}))]
+pub struct Diagnosis {
+    pub main_problem: String,
+    pub main_risk: String,
+    pub first_recommendation: String,
+}
+
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "id": 1,
+    "title": "Понять стоимость кредитки",
+    "type": "lesson",
+    "crystals": 30
+}))]
+pub struct LevelTask {
+    pub id: i64,
+    pub title: String,
+    #[schema(example = "quiz")]
+    pub r#type: String,
+    pub crystals: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "id": 1,
+    "title": "Кредиты и долги",
+    "description": "Кредитный Светофор показывает риски и помогает снижать переплату.",
+    "icon_name": "AlertCircle",
+    "tasks": [{ "id": 1, "title": "Понять стоимость кредитки", "type": "lesson", "crystals": 30 }]
+}))]
+pub struct Level {
+    pub id: i64,
+    pub title: String,
+    pub description: String,
+    #[schema(example = "Sprout")]
+    pub icon_name: String,
+    pub tasks: Vec<LevelTask>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[schema(example = json!({
+    "profile": {
+        "monthly_income": 100000,
+        "mandatory_expenses": 65000,
+        "free_money": 35000,
+        "has_credit": true,
+        "debts": [{ "type": "кредит/долг", "amount": null, "monthly_payment": null }],
+        "savings_months": null,
+        "main_goal": "накопить подушку",
+        "spending_leaks": ["доставка", "подписки"],
+        "risk_zone": "red",
+        "missing_fields": []
+    },
+    "diagnosis": {
+        "main_problem": "Кредитная нагрузка мешает свободным деньгам",
+        "main_risk": "Проценты и минимальные платежи могут съедать прогресс",
+        "first_recommendation": "Выпиши все долги: остаток, ставку и минимальный платёж"
+    },
+    "path": []
+}))]
+pub struct DiagnoseResponse {
+    pub profile: FinancialProfileSnapshot,
+    pub diagnosis: Diagnosis,
+    pub path: Vec<Level>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/ai/chat",
+    tag = "ai",
+    summary = "Chat with FinBro",
+    description = "Sends a user message and optional conversation context to the AI mentor. The answer is short, friendly and focused on collecting financial profile data.",
+    request_body(
+        content = ChatRequestPayload,
+        description = "User message and optional previous conversation context.",
+        example = json!({
+            "message": "Мой доход 100000, траты 65000, есть кредитка",
+            "context": "Пользователь хочет накопить подушку"
+        })
+    ),
+    responses(
+        (status = 200, description = "FinBro response returned successfully.", body = ChatResponse,
+            example = json!({
+                "response": "Понял. Давай уточним кредитку: примерный остаток и минимальный платёж?"
+            })
+        ),
+        (status = 400, description = "Invalid request body.", body = ErrorResponse,
+            example = json!({ "error": "bad_request", "message": "Message is required" })
+        ),
+        (status = 503, description = "AI provider is unavailable.", body = ChatResponse,
+            example = json!({ "error": "AI service unavailable" })
+        ),
+        (status = 500, description = "Unexpected server error.", body = ErrorResponse,
+            example = json!({ "error": "internal_error", "message": "Unexpected server error" })
+        )
+    )
+)]
+pub async fn chat(
+    Json(payload): Json<ChatRequestPayload>,
+) -> Result<Json<Value>, (StatusCode, Json<ErrorResponse>)> {
+    if payload.message.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("bad_request", "Message is required")),
+        ));
+    }
+
     let system_prompt = r#"Ты FinBro — главный маскот-скрепка и персональный AI-наставник в Duolingo-like приложении про финансовые привычки.
 Твоя задача — вести живой разговор, собрать финансовую ситуацию пользователя и подготовить его к персональному пути уровней.
 Отвечай только от лица FinBro, коротко, дружелюбно и по-русски.
@@ -30,15 +207,56 @@ pub async fn chat(Json(payload): Json<ChatRequestPayload>) -> Json<Value> {
     };
     
     match call_ai(&prompt, Some(system_prompt)).await {
-        Ok(response) => Json(json!({ "response": response })),
+        Ok(response) => Ok(Json(json!({ "response": response }))),
         Err(e) => {
             tracing::error!("Failed to call AI: {}", e);
-            Json(json!({ "error": "AI service unavailable" }))
+            Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new("ai_unavailable", "AI service unavailable")),
+            ))
         }
     }
 }
 
-pub async fn diagnose(Json(payload): Json<DiagnoseRequestPayload>) -> Json<Value> {
+#[utoipa::path(
+    post,
+    path = "/ai/diagnose",
+    tag = "ai",
+    summary = "Build financial diagnosis and path",
+    description = "Analyzes chat history, extracts a financial profile, creates a short diagnosis and generates Duolingo-like learning levels.",
+    request_body(
+        content = DiagnoseRequestPayload,
+        description = "Full chat history used to build a profile and learning path.",
+        example = json!({
+            "chat_history": "Пользователь: доход 100000, обязательные расходы 65000, есть кредитка, деньги уходят на доставку и подписки, хочу накопить подушку"
+        })
+    ),
+    responses(
+        (status = 200, description = "Profile, diagnosis and path generated successfully.", body = DiagnoseResponse),
+        (status = 400, description = "Invalid request body.", body = ErrorResponse,
+            example = json!({ "error": "bad_request", "message": "chat_history is required" })
+        ),
+        (status = 503, description = "AI provider is unavailable. Fallback diagnosis may still be returned by the current handler.", body = ErrorResponse,
+            example = json!({ "error": "ai_unavailable", "message": "AI service unavailable" })
+        ),
+        (status = 500, description = "Unexpected server error.", body = ErrorResponse,
+            example = json!({ "error": "internal_error", "message": "Unexpected server error" })
+        )
+    )
+)]
+pub async fn diagnose(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<DiagnoseRequestPayload>,
+) -> Result<Json<Value>, (StatusCode, Json<ErrorResponse>)> {
+    if payload.chat_history.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("bad_request", "chat_history is required")),
+        ));
+    }
+    let user_id = optional_user_id_from_headers(&headers)?;
+
     let system_prompt = r#"Ты FinBro - финансовый эксперт и наставник.
 Твоя задача - проанализировать диалог с пользователем, заполнить его финансовый профиль, выдать краткий диагноз и составить персональный путь развития (Roadmap) из 4-6 уровней.
 Ответь СТРОГО в формате JSON без markdown разметки. Структура ответа:
@@ -86,19 +304,253 @@ pub async fn diagnose(Json(payload): Json<DiagnoseRequestPayload>) -> Json<Value
     match call_ai(&prompt, Some(system_prompt)).await {
         Ok(response) => {
             let cleaned = response.trim().trim_start_matches("```json").trim_start_matches("```").trim_end_matches("```").trim();
-            match serde_json::from_str::<Value>(cleaned) {
-                Ok(parsed) => Json(ensure_diagnosis_shape(parsed, &payload.chat_history)),
+            let diagnosis = match serde_json::from_str::<Value>(cleaned) {
+                Ok(parsed) => ensure_diagnosis_shape(parsed, &payload.chat_history),
                 Err(e) => {
                     tracing::error!("Failed to parse AI JSON: {}", e);
-                    Json(fallback_diagnosis(&payload.chat_history))
+                    fallback_diagnosis(&payload.chat_history)
                 }
-            }
+            };
+            persist_diagnosis_if_authenticated(&state, user_id, &diagnosis).await?;
+            Ok(Json(diagnosis))
         },
         Err(e) => {
             tracing::error!("Failed to call AI: {}", e);
-            Json(fallback_diagnosis(&payload.chat_history))
+            let diagnosis = fallback_diagnosis(&payload.chat_history);
+            persist_diagnosis_if_authenticated(&state, user_id, &diagnosis).await?;
+            Ok(Json(diagnosis))
         }
     }
+}
+
+fn optional_user_id_from_headers(
+    headers: &HeaderMap,
+) -> Result<Option<Uuid>, (StatusCode, Json<ErrorResponse>)> {
+    if headers.get(axum::http::header::AUTHORIZATION).is_some() {
+        user_id_from_headers(headers).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+async fn persist_diagnosis_if_authenticated(
+    state: &AppState,
+    user_id: Option<Uuid>,
+    diagnosis: &Value,
+) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    let Some(user_id) = user_id else {
+        return Ok(());
+    };
+
+    let profile = diagnosis.get("profile").unwrap_or(&Value::Null);
+    let diagnosis_summary = diagnosis.get("diagnosis").unwrap_or(&Value::Null);
+    let monthly_income = profile
+        .get("monthly_income")
+        .and_then(Value::as_i64)
+        .map(|value| value as f64);
+    let has_credit = profile
+        .get("has_credit")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let main_problem = value_string(diagnosis_summary, "main_problem");
+    let main_risk = value_string(diagnosis_summary, "main_risk");
+    let first_recommendation = value_string(diagnosis_summary, "first_recommendation");
+    let main_goal = value_string(profile, "main_goal");
+
+    let mut tx = state.db.begin().await.map_err(|err| {
+        tracing::error!("Failed to start diagnosis persistence transaction: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+        )
+    })?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO financial_profiles (user_id, monthly_income, has_credit, main_problem, main_risk, first_recommendation)
+        VALUES ($1, $2::numeric, $3, $4, $5, $6)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            monthly_income = EXCLUDED.monthly_income,
+            has_credit = EXCLUDED.has_credit,
+            main_problem = EXCLUDED.main_problem,
+            main_risk = EXCLUDED.main_risk,
+            first_recommendation = EXCLUDED.first_recommendation,
+            updated_at = CURRENT_TIMESTAMP
+        "#,
+    )
+    .bind(user_id)
+    .bind(monthly_income)
+    .bind(has_credit)
+    .bind(main_problem.as_deref())
+    .bind(main_risk.as_deref())
+    .bind(first_recommendation.as_deref())
+    .execute(&mut *tx)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to persist financial profile: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+        )
+    })?;
+
+    if let Some(goal) = main_goal.as_deref().filter(|goal| !goal.trim().is_empty()) {
+        sqlx::query(
+            r#"
+            INSERT INTO goals (user_id, title, status)
+            SELECT $1, $2, 'active'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM goals WHERE user_id = $1 AND title = $2 AND status = 'active'
+            )
+            "#,
+        )
+        .bind(user_id)
+        .bind(goal)
+        .execute(&mut *tx)
+        .await
+        .map_err(|err| {
+            tracing::error!("Failed to persist goal: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+            )
+        })?;
+    }
+
+    sqlx::query(
+        "UPDATE financial_paths SET status = 'inactive' WHERE user_id = $1 AND status = 'active'",
+    )
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to deactivate previous paths: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+        )
+    })?;
+
+    let path_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO financial_paths (user_id, title, description, order_index, status)
+        VALUES ($1, 'Персональный путь', 'Путь построен по финансовой диагностике', 0, 'active')
+        RETURNING id
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to create learning path: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+        )
+    })?;
+
+    if let Some(levels) = diagnosis.get("path").and_then(Value::as_array) {
+        for (level_index, level) in levels.iter().enumerate() {
+            let title = value_string(level, "title").unwrap_or_else(|| format!("Уровень {}", level_index + 1));
+            let description = value_string(level, "description").unwrap_or_default();
+            let icon_name = value_string(level, "icon_name").unwrap_or_else(|| "Sprout".to_string());
+
+            let level_id = sqlx::query_scalar::<_, Uuid>(
+                r#"
+                INSERT INTO levels (path_id, title, description, icon_name, order_index)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+                "#,
+            )
+            .bind(path_id)
+            .bind(title)
+            .bind(description)
+            .bind(icon_name)
+            .bind((level_index + 1) as i32)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to create level: {err}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+                )
+            })?;
+
+            if let Some(tasks) = level.get("tasks").and_then(Value::as_array) {
+                for (task_index, task) in tasks.iter().enumerate() {
+                    let title = value_string(task, "title").unwrap_or_else(|| format!("Задание {}", task_index + 1));
+                    let task_type = value_string(task, "type").unwrap_or_else(|| "lesson".to_string());
+                    let crystals = task
+                        .get("crystals")
+                        .and_then(Value::as_i64)
+                        .unwrap_or(10)
+                        .clamp(0, i32::MAX as i64) as i32;
+
+                    let task_id = sqlx::query_scalar::<_, Uuid>(
+                        r#"
+                        INSERT INTO tasks (level_id, title, description, task_type, reward_crystals, order_index)
+                        VALUES ($1, $2, '', $3, $4, $5)
+                        RETURNING id
+                        "#,
+                    )
+                    .bind(level_id)
+                    .bind(title)
+                    .bind(task_type)
+                    .bind(crystals)
+                    .bind((task_index + 1) as i32)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|err| {
+                        tracing::error!("Failed to create task: {err}");
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+                        )
+                    })?;
+
+                    sqlx::query(
+                        r#"
+                        INSERT INTO user_tasks (user_id, task_id, status)
+                        VALUES ($1, $2, 'pending')
+                        ON CONFLICT (user_id, task_id) DO NOTHING
+                        "#,
+                    )
+                    .bind(user_id)
+                    .bind(task_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|err| {
+                        tracing::error!("Failed to initialize user task: {err}");
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+                        )
+                    })?;
+                }
+            }
+        }
+    }
+
+    tx.commit().await.map_err(|err| {
+        tracing::error!("Failed to commit diagnosis persistence: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("internal_error", "Unexpected server error")),
+        )
+    })?;
+
+    Ok(())
+}
+
+fn value_string(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 fn ensure_diagnosis_shape(mut parsed: Value, chat_history: &str) -> Value {

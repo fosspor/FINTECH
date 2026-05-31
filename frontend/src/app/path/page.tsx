@@ -9,43 +9,94 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LevelMascot, getLevelMascot, type LevelMascotId } from "@/components/level-mascots";
 import { DEFAULT_LEVELS } from "@/lib/default-levels";
+import { apiUrl, authFetch } from "@/lib/api";
 
 type LevelData = {
-  id: number;
+  id: string | number;
   title: string;
-  description: string;
+  description?: string;
   icon_name: string;
   status: string;
+  order_index?: number;
   mascot: LevelMascotId;
 };
 
 export default function PathPage() {
   const [levels, setLevels] = useState<LevelData[]>([]);
+  const [stats, setStats] = useState({ streak: 0, crystals: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("finbro_path");
-    if (stored) {
+    let cancelled = false;
+
+    async function loadPath() {
       try {
-        const parsed = JSON.parse(stored);
-        const withStatus = parsed.map((lvl: Omit<LevelData, "status" | "mascot">, i: number) => ({
-          ...lvl,
-          status: i === 0 ? "current" : "locked",
-          mascot: getLevelMascot(lvl.id, `${lvl.title} ${lvl.description ?? ""}`)
-        }));
-        setLevels(withStatus);
-      } catch (e) {
-        console.error("Failed to parse dynamic path", e);
+        const [pathResponse, userResponse] = await Promise.all([
+          authFetch(apiUrl("/path")),
+          authFetch(apiUrl("/users/me")),
+        ]);
+
+        if (pathResponse.ok) {
+          const data = await pathResponse.json();
+          const fromApi = data.levels.map((level: Omit<LevelData, "mascot">) => ({
+            ...level,
+            mascot: getLevelMascot(level.order_index, `${level.title} ${level.description ?? ""}`),
+          }));
+          if (!cancelled) {
+            setLevels(fromApi);
+            localStorage.setItem("finbro_path", JSON.stringify(fromApi));
+          }
+        } else {
+          loadLocalPath();
+        }
+
+        if (userResponse.ok) {
+          const user = await userResponse.json();
+          if (!cancelled) {
+            setStats({
+              streak: user.streak?.current_streak ?? 0,
+              crystals: user.currency?.crystals ?? 0,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load backend path", error);
+        loadLocalPath();
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } else {
+    }
+
+    function loadLocalPath() {
+      const stored = localStorage.getItem("finbro_path");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const withStatus = parsed.map((lvl: Partial<LevelData> & Pick<LevelData, "id" | "title">, i: number) => ({
+            ...lvl,
+            status: lvl.status ?? (i === 0 ? "current" : "locked"),
+            mascot: getLevelMascot(lvl.order_index ?? Number(lvl.id), `${lvl.title} ${lvl.description ?? ""}`)
+          }));
+          if (!cancelled) setLevels(withStatus);
+          return;
+        } catch (e) {
+          console.error("Failed to parse dynamic path", e);
+        }
+      }
+
       const fallback = DEFAULT_LEVELS.map((lvl, i) => ({
         ...lvl,
         status: i === 0 ? "current" : "locked",
+        order_index: lvl.id,
         mascot: getLevelMascot(lvl.id, `${lvl.title} ${lvl.description}`)
       }));
-      setLevels(fallback);
+      if (!cancelled) setLevels(fallback);
     }
-    setLoading(false);
+
+    loadPath();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
@@ -77,12 +128,12 @@ export default function PathPage() {
           {/* Flame / Streak */}
           <div className="flex items-center gap-1.5 bg-warning/10 text-warning px-3 py-1.5 rounded-full font-bold text-sm border border-warning/20">
             <Flame className="w-4 h-4 fill-warning" />
-            12
+            {stats.streak}
           </div>
           {/* Gem / Crystals */}
           <div className="flex items-center gap-1.5 bg-sky-500/10 text-sky-500 px-3 py-1.5 rounded-full font-bold text-sm border border-sky-500/20">
             <Gem className="w-4 h-4 fill-sky-500" />
-            450
+            {stats.crystals}
           </div>
         </div>
       </header>
@@ -141,7 +192,7 @@ export default function PathPage() {
 
                       <LevelMascot
                         mascot={level.mascot}
-                        levelId={level.id}
+                        levelId={level.order_index ?? Number(level.id)}
                         title={level.title}
                         mood={isCompleted ? "celebrate" : isCurrent ? "happy" : "idle"}
                         size="sm"

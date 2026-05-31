@@ -47,6 +47,32 @@ const riskCopy = {
 const formatMoney = (value: number | null) =>
   typeof value === "number" ? `${new Intl.NumberFormat("ru-RU").format(value)} ₽` : "не указано";
 
+function normalizeDiagnosis(value: Partial<DiagnosisData> | null): DiagnosisData {
+  return {
+    main_problem: value?.main_problem || "Нужно уточнить главную финансовую проблему",
+    main_risk: value?.main_risk || "Без плана расходы могут снова стать непрозрачными",
+    first_recommendation: value?.first_recommendation || "Начни с короткой карты доходов, расходов и долгов",
+  };
+}
+
+function normalizeProfile(value: Partial<ProfileData> | null): ProfileData | null {
+  if (!value) return null;
+  const riskZone = value.risk_zone === "green" || value.risk_zone === "red" ? value.risk_zone : "yellow";
+
+  return {
+    monthly_income: typeof value.monthly_income === "number" ? value.monthly_income : null,
+    mandatory_expenses: typeof value.mandatory_expenses === "number" ? value.mandatory_expenses : null,
+    free_money: typeof value.free_money === "number" ? value.free_money : null,
+    has_credit: Boolean(value.has_credit),
+    debts: Array.isArray(value.debts) ? value.debts : [],
+    savings_months: typeof value.savings_months === "number" ? value.savings_months : null,
+    main_goal: typeof value.main_goal === "string" ? value.main_goal : null,
+    spending_leaks: Array.isArray(value.spending_leaks) ? value.spending_leaks : [],
+    risk_zone: riskZone,
+    missing_fields: Array.isArray(value.missing_fields) ? value.missing_fields : [],
+  };
+}
+
 export default function DiagnosisPage() {
   const [diagnosis, setDiagnosis] = useState<DiagnosisData | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -56,9 +82,11 @@ export default function DiagnosisPage() {
     const storedProfile = localStorage.getItem("finbro_profile");
     if (stored) {
       try {
-        setDiagnosis(JSON.parse(stored));
+        setDiagnosis(normalizeDiagnosis(JSON.parse(stored)));
       } catch (e) {
         console.error("Failed to parse diagnosis", e);
+        localStorage.removeItem("finbro_diagnosis");
+        setDiagnosis(normalizeDiagnosis(null));
       }
     } else {
       // Mock fallback if user navigates directly
@@ -71,9 +99,10 @@ export default function DiagnosisPage() {
 
     if (storedProfile) {
       try {
-        setProfile(JSON.parse(storedProfile));
+        setProfile(normalizeProfile(JSON.parse(storedProfile)));
       } catch (e) {
         console.error("Failed to parse profile", e);
+        localStorage.removeItem("finbro_profile");
       }
     }
   }, []);

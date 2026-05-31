@@ -8,3 +8,4 @@ build/
 target/
 .tools/
 Cargo.lock
+backend/.env

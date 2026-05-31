@@ -2,8 +2,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 
-const API_WAITING_MESSAGE: &str = "ожидается api";
-
 #[derive(Serialize)]
 struct OpenAiMessage {
     role: String,
@@ -76,17 +74,22 @@ pub async fn call_ai(
     let yandex_api_key = env::var("YANDEX_API_KEY").unwrap_or_default();
     let yandex_folder_id = env::var("YANDEX_FOLDER_ID").unwrap_or_default();
 
-    if !yandex_api_key.trim().is_empty() && !yandex_folder_id.trim().is_empty() {
+    if is_configured_secret(&yandex_api_key) && is_configured_secret(&yandex_folder_id) {
         return call_yandexgpt(prompt, system_prompt, &yandex_api_key, &yandex_folder_id).await;
     }
 
     if let Ok(api_key) = env::var("OPENAI_API_KEY") {
-        if !api_key.trim().is_empty() && api_key != "your_openai_api_key_here" {
+        if is_configured_secret(&api_key) {
             return call_openai(prompt, system_prompt, &api_key).await;
         }
     }
 
-    Ok(API_WAITING_MESSAGE.to_string())
+    Err("AI provider is not configured. Set YANDEX_API_KEY + YANDEX_FOLDER_ID or OPENAI_API_KEY.".into())
+}
+
+fn is_configured_secret(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty() && !value.contains("your_")
 }
 
 async fn call_openai(
@@ -123,16 +126,19 @@ async fn call_openai(
         .send()
         .await?;
 
-    if response.status().is_success() {
+    let status = response.status();
+    if status.is_success() {
         let chat_response: OpenAiChatResponse = response.json().await?;
         if let Some(choice) = chat_response.choices.first() {
             return Ok(choice.message.content.clone());
         }
-    } else {
-        tracing::error!("OpenAI API error: {}", response.text().await?);
+
+        return Err("OpenAI response did not contain a message".into());
     }
 
-    Ok(API_WAITING_MESSAGE.to_string())
+    let body = response.text().await.unwrap_or_default();
+    tracing::error!("OpenAI API error {status}: {body}");
+    Err(format!("OpenAI API error: {status}").into())
 }
 
 async fn call_yandexgpt(
@@ -178,16 +184,19 @@ async fn call_yandexgpt(
         .send()
         .await?;
 
-    if response.status().is_success() {
+    let status = response.status();
+    if status.is_success() {
         let completion_response: YandexCompletionResponse = response.json().await?;
         if let Some(result) = completion_response.result {
             if let Some(alternative) = result.alternatives.first() {
                 return Ok(alternative.message.text.clone());
             }
         }
-    } else {
-        tracing::error!("YandexGPT API error: {}", response.text().await?);
+
+        return Err("YandexGPT response did not contain a message".into());
     }
 
-    Ok(API_WAITING_MESSAGE.to_string())
+    let body = response.text().await.unwrap_or_default();
+    tracing::error!("YandexGPT API error {status}: {body}");
+    Err(format!("YandexGPT API error: {status}").into())
 }
