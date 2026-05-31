@@ -82,6 +82,7 @@ async fn main() {
         .route("/consultations", post(consultations::routes::create_consultation))
         .route("/path", get(learning::routes::get_path))
         .route("/levels/{id}", get(learning::routes::get_level))
+        .route("/levels/{id}/quiz", post(learning::routes::generate_quiz))
         .route("/tasks/{id}/complete", post(learning::routes::complete_task))
         
         // Documented CRUD example routes

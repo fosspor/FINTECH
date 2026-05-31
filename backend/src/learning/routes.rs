@@ -4,7 +4,7 @@ use axum::{
     Json,
 };
 use chrono::{NaiveDate, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
@@ -14,6 +14,7 @@ use crate::{
     docs::ErrorResponse,
     AppState,
 };
+use crate::ai::client::call_ai;
 
 #[derive(Serialize, ToSchema)]
 #[schema(example = json!({
@@ -89,6 +90,18 @@ pub struct CompleteTaskResponse {
     pub crystals: i32,
     pub current_streak: i32,
     pub rewarded: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct GenerateQuizRequest {
+    pub chat_history: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct GenerateQuizResponse {
+    pub question: String,
+    pub answers: Vec<String>,
+    pub correct_answer: String,
 }
 
 #[derive(serde::Deserialize, IntoParams)]
@@ -414,6 +427,172 @@ async fn update_streak(
     })?;
 
     Ok(current)
+}
+
+#[utoipa::path(
+    post,
+    path = "/levels/{id}/quiz",
+    tag = "learning",
+    summary = "Generate a quiz for a level",
+    description = "For even levels generates a financial literacy quiz via configured AI provider (YandexGPT or OpenAI). For odd levels returns a smart static quiz.",
+    params(LevelPath),
+    security(("bearer_auth" = [])),
+    responses(
+        (status = 200, description = "Quiz generated successfully."),
+        (status = 401, description = "User is not authenticated.", body = ErrorResponse),
+        (status = 404, description = "Level not found in active path.", body = ErrorResponse),
+        (status = 503, description = "AI provider unavailable (static fallback may be used).", body = ErrorResponse)
+    )
+)]
+pub async fn generate_quiz(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(level_id): Path<Uuid>,
+    Json(payload): Json<GenerateQuizRequest>,
+) -> Result<Json<GenerateQuizResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let user_id = user_id_from_headers(&headers)?;
+
+    let (order_index, title, description) = sqlx::query_as::<_, (i32, String, Option<String>)>(
+        r#"
+        SELECT l.order_index, l.title, l.description
+        FROM levels l
+        JOIN financial_paths fp ON fp.id = l.path_id
+        WHERE l.id = $1 AND fp.user_id = $2 AND fp.status = 'active'
+        "#,
+    )
+    .bind(level_id)
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to load level for quiz: {err}");
+        internal_error()
+    })?
+    .ok_or_else(not_found)?;
+
+    // Odd levels -> static quiz
+    if order_index % 2 != 0 {
+        let (question, correct, wrongs) = build_static_quiz(&title, description.as_deref());
+        let mut answers = Vec::with_capacity(1 + wrongs.len());
+        answers.push(correct.clone());
+        answers.extend(wrongs.iter().cloned());
+        return Ok(Json(GenerateQuizResponse {
+            question,
+            answers,
+            correct_answer: correct,
+        }));
+    }
+
+    // Even levels -> AI-generated quiz
+    let topic = format!("{} {}", title, description.clone().unwrap_or_default());
+    let chat_history = payload.chat_history.unwrap_or_default();
+    let system_prompt = r#"Ты генерируешь 1 обучающий вопрос по финансовой грамотности (RU) с 1 правильным и 3 неправильными вариантами.
+Ответь строго JSON без markdown, формат:
+{
+  "question": "",
+  "correct": "",
+  "wrong": ["", "", ""]
+}
+Правильный ответ должен быть практически полезным, без жаргона, ориентирован на первый шаг. Никаких ссылок и дисклеймеров."#;
+
+    let user_prompt = format!(
+        "Сгенерируй вопрос и ответы по теме уровня: `{topic}`. Учитывай контекст диалога (если есть):\n{chat_history}"
+    );
+
+    #[derive(Deserialize)]
+    struct AIQuiz { question: String, correct: String, wrong: Vec<String> }
+
+    let (question, correct, wrong) = match call_ai(&user_prompt, Some(system_prompt)).await {
+        Ok(text) => {
+            let cleaned = text
+                .trim()
+                .trim_start_matches("```json")
+                .trim_start_matches("```")
+                .trim_end_matches("```")
+                .trim()
+                .to_string();
+            match serde_json::from_str::<AIQuiz>(&cleaned) {
+                Ok(aiq) if aiq.wrong.len() >= 2 => (aiq.question, aiq.correct, aiq.wrong),
+                _ => build_static_quiz(&title, description.as_deref()),
+            }
+        }
+        Err(err) => {
+            tracing::warn!("AI quiz generation failed, fallback to static: {}", err);
+            build_static_quiz(&title, description.as_deref())
+        }
+    };
+
+    let mut answers = Vec::with_capacity(1 + wrong.len());
+    answers.push(correct.clone());
+    answers.extend(wrong.into_iter());
+
+    Ok(Json(GenerateQuizResponse {
+        question,
+        answers,
+        correct_answer: correct,
+    }))
+}
+
+fn build_static_quiz(title: &str, description: Option<&str>) -> (String, String, Vec<String>) {
+    let topic = format!("{} {}", title, description.unwrap_or("")).to_lowercase();
+
+    if topic.contains("кредит") || topic.contains("долг") || topic.contains("карт") || topic.contains("займ") {
+        return (
+            "С чего начать, чтобы снизить переплату и тревожность по долгам?".to_string(),
+            "Выписать остаток, ставку и минимальный платеж по каждому долгу".to_string(),
+            vec![
+                "Платить случайную сумму, когда останутся деньги".to_string(),
+                "Открыть еще один кредит, чтобы стало легче".to_string(),
+                "Игнорировать выписку по карте, чтобы не расстраиваться".to_string(),
+            ],
+        );
+    }
+
+    if topic.contains("подуш") || topic.contains("накоп") || topic.contains("резерв") || topic.contains("сбереж") {
+        return (
+            "Какой первый шаг к созданию финансовой подушки?".to_string(),
+            "Выбрать маленькую регулярную сумму и отделить ее в день дохода".to_string(),
+            vec![
+                "Ждать месяца, когда не будет никаких расходов".to_string(),
+                "Держать резерв на той же карте, где ежедневные траты".to_string(),
+                "Взять кредит, чтобы быстрее накопить подушку".to_string(),
+            ],
+        );
+    }
+
+    if topic.contains("импульс") || topic.contains("покуп") || topic.contains("трат") || topic.contains("подпис") {
+        return (
+            "Как снизить импульсивные траты уже сегодня?".to_string(),
+            "Поставить паузу перед покупкой и записать причину желания".to_string(),
+            vec![
+                "Покупать быстрее, пока действует скидка".to_string(),
+                "Не смотреть выписку, чтобы не расстраиваться".to_string(),
+                "Оплачивать все кредиткой, чтобы копились мили".to_string(),
+            ],
+        );
+    }
+
+    if topic.contains("бюдж") || topic.contains("расход") || topic.contains("доход") || topic.contains("категор") || topic.contains("план") {
+        return (
+            "Как начать собирать работающий бюджет без боли?".to_string(),
+            "Отделить обязательные расходы от свободных и решить судьбу остатка".to_string(),
+            vec![
+                "Вести идеальный учет за весь прошлый год".to_string(),
+                "Купить платное приложение и подождать вдохновения".to_string(),
+                "Пока ничего не менять, это всё слишком сложно".to_string(),
+            ],
+        );
+    }
+
+    (
+        "Какой шаг поможет приблизиться к цели прямо сегодня?".to_string(),
+        "Сделать один маленький шаг, который можно проверить сегодня".to_string(),
+        vec![
+            "Составить идеальный план и начать когда-нибудь потом".to_string(),
+            "Ничего не менять, пока не появится больше денег".to_string(),
+            "Отложить тему до конца месяца".to_string(),
+        ],
+    )
 }
 
 fn not_found() -> (StatusCode, Json<ErrorResponse>) {
